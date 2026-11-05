@@ -20,6 +20,7 @@ public sealed class RainViewModel : INotifyPropertyChanged
 
     private readonly Session _session;
     private readonly IDispatcherTimer? _ticker;
+    private bool _isVolumeOpen;
 
     public RainViewModel(Session session, SceneCatalog catalog)
     {
@@ -28,8 +29,10 @@ public sealed class RainViewModel : INotifyPropertyChanged
 
         TogglePlayCommand = new Command(TogglePlay);
         OpenSleepTimerCommand = new Command(async () => await OpenSleepTimerAsync());
-        NextSceneCommand = new Command(() => _session.Next());
-        PreviousSceneCommand = new Command(() => _session.Previous());
+        NextSceneCommand = new Command(() => { DismissVolume(); _session.Next(); });
+        PreviousSceneCommand = new Command(() => { DismissVolume(); _session.Previous(); });
+        ToggleVolumeCommand = new Command(() => IsVolumeOpen = !IsVolumeOpen);
+        CloseVolumeCommand = new Command(DismissVolume);
 
         _ticker = Dispatcher.GetForCurrentThread().CreateTimer();
         _ticker.Interval = TimeSpan.FromMilliseconds(100);
@@ -44,6 +47,8 @@ public sealed class RainViewModel : INotifyPropertyChanged
     public ICommand OpenSleepTimerCommand { get; }
     public ICommand NextSceneCommand { get; }
     public ICommand PreviousSceneCommand { get; }
+    public ICommand ToggleVolumeCommand { get; }
+    public ICommand CloseVolumeCommand { get; }
 
     public bool HasSelection => _session.State.CurrentSceneId is not null;
     public string? CurrentSceneId => _session.State.CurrentSceneId;
@@ -63,6 +68,27 @@ public sealed class RainViewModel : INotifyPropertyChanged
     public string SleepTimerText => _session.State.SleepTimerRemaining is { } remaining
         ? FormatRemaining(remaining) : string.Empty;
 
+    /// <summary>The master-volume slider (volume control toggles it; a tap away
+    /// dismisses). Dragging it is the set-volume intent straight through.</summary>
+    public bool IsVolumeOpen
+    {
+        get => _isVolumeOpen;
+        private set
+        {
+            if (_isVolumeOpen == value) return;
+            _isVolumeOpen = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsVolumeOpen)));
+        }
+    }
+
+    public double MasterVolume
+    {
+        get => _session.State.Volume;
+        set => _session.SetVolume(value);
+    }
+
+    public string VolumePercentText => $"{(int)Math.Round(_session.State.Volume * 100)}%";
+
     private SceneTileViewModel? Tile(string? id) => Scenes.FirstOrDefault(t => t.Id == id);
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -70,6 +96,7 @@ public sealed class RainViewModel : INotifyPropertyChanged
     /// <summary>Tap on a Scene card: the obvious toggle (story: tap plays, re-tap pauses).</summary>
     internal void ToggleTile(SceneTileViewModel tile)
     {
+        DismissVolume();
         if (tile.Id == _session.State.CurrentSceneId)
         {
             if (IsPlaying) _session.Pause(); else _session.Play();
@@ -82,14 +109,19 @@ public sealed class RainViewModel : INotifyPropertyChanged
 
     private void TogglePlay()
     {
+        DismissVolume();
         if (!HasSelection) return;
         if (IsPlaying) _session.Pause(); else _session.Play();
     }
+
+    /// <summary>Any other interaction is a "tap elsewhere" for the volume slider.</summary>
+    private void DismissVolume() => IsVolumeOpen = false;
 
     /// <summary>Timer chip / control: offers the fixed Sleep Timer durations (spec:
     /// no custom durations in v1). The chosen value becomes the Sleep Timer.</summary>
     private async Task OpenSleepTimerAsync()
     {
+        DismissVolume();
         if (Application.Current?.Windows.FirstOrDefault()?.Page is not Page page) return;
 
         var choice = await page.DisplayActionSheetAsync(
@@ -122,6 +154,7 @@ public sealed class RainViewModel : INotifyPropertyChanged
                      nameof(HasSelection), nameof(IsPlaying), nameof(StatusText),
                      nameof(PlayerTitle), nameof(PlayerIcon), nameof(ElapsedText),
                      nameof(IsSleepTimerArmed), nameof(SleepTimerText),
+                     nameof(MasterVolume), nameof(VolumePercentText),
                  })
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

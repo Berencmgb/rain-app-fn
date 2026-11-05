@@ -133,6 +133,14 @@
             </VerticalStackLayout>
         </ScrollView>
 
+        <!-- While the master-volume slider is open the Scene list is a tap-away:
+             this near-invisible layer catches those taps and dismisses it. -->
+        <BoxView Grid.Row="0" Color="#01FFFFFF" IsVisible="{Binding IsVolumeOpen}">
+            <BoxView.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding CloseVolumeCommand}" />
+            </BoxView.GestureRecognizers>
+        </BoxView>
+
         <!-- Bottom player -->
         <Border Grid.Row="1" IsVisible="{Binding HasSelection}"
                 BackgroundColor="{StaticResource PlayerSurface}"
@@ -186,7 +194,7 @@
                 <!-- Controls: the timer opens the Sleep Timer sheet (#3); prev / next
                      walk the Scene list as a ring (wrapping past the ends; while paused
                      they change the selection without starting audio); the volume
-                     control is inert (…#5). -->
+                     control reveals the master-volume slider below (#5). -->
                 <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="18"
                       HorizontalOptions="Center">
                     <Image Source="ctrl_timer.svg" WidthRequest="21" HeightRequest="21" Opacity="0.9"
@@ -221,7 +229,30 @@
                         </Image.GestureRecognizers>
                     </Image>
                     <Image Grid.Column="4" Source="ctrl_volume.svg" WidthRequest="21" HeightRequest="21"
-                           Opacity="0.35" VerticalOptions="Center" />
+                           Opacity="0.9" VerticalOptions="Center">
+                        <Image.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding ToggleVolumeCommand}" />
+                        </Image.GestureRecognizers>
+                    </Image>
+                </Grid>
+
+                <!-- Master-volume slider: revealed by the volume control, dismissed by
+                     tapping it again or anywhere else. Session scales all output by it,
+                     so fades ramp around this level rather than resetting it. -->
+                <Grid IsVisible="{Binding IsVolumeOpen}"
+                      ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                    <Image Source="ctrl_volume.svg" WidthRequest="17" HeightRequest="17"
+                           Opacity="0.9" VerticalOptions="Center" />
+                    <Slider Grid.Column="1" Minimum="0" Maximum="1"
+                            Value="{Binding MasterVolume, Mode=TwoWay}"
+                            MinimumTrackColor="{StaticResource Accent}"
+                            MaximumTrackColor="{StaticResource TrackBackground}"
+                            ThumbColor="{StaticResource Accent}"
+                            VerticalOptions="Center" />
+                    <Label Grid.Column="2" Text="{Binding VolumePercentText}"
+                           TextColor="{StaticResource TextSecondary}" FontSize="11"
+                           WidthRequest="38" HorizontalTextAlignment="End"
+                           VerticalTextAlignment="Center" />
                 </Grid>
             </VerticalStackLayout>
         </Border>
