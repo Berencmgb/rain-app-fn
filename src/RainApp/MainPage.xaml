@@ -109,7 +109,7 @@
                                         <Label Text="∞ loop" TextColor="{StaticResource TextSecondary}"
                                                FontSize="12" HorizontalTextAlignment="End" />
                                         <Border WidthRequest="38" HeightRequest="38" StrokeThickness="0"
-                                                StrokeShape="Circle" HorizontalOptions="End"
+                                                StrokeShape="Ellipse" HorizontalOptions="End"
                                                 BackgroundColor="{StaticResource PlayDotBackground}">
                                             <Border.Triggers>
                                                 <DataTrigger TargetType="Border" Binding="{Binding IsCurrent}" Value="True">
@@ -177,7 +177,7 @@
                            Opacity="0.5" VerticalOptions="Center" />
 
                     <Border Grid.Column="2" WidthRequest="58" HeightRequest="58" StrokeThickness="0"
-                            StrokeShape="Circle" Background="{StaticResource PlayButtonBrush}">
+                            StrokeShape="Ellipse" Background="{StaticResource PlayButtonBrush}">
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding TogglePlayCommand}" />
                         </Border.GestureRecognizers>
