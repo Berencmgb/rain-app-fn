@@ -8,6 +8,9 @@ public sealed record SessionState
 
     /// <summary>How long the current Scene has been listened to (excludes time paused).</summary>
     public TimeSpan ElapsedListening { get; init; }
+
+    /// <summary>Remaining Sleep Timer time, or null while Off (never armed at launch).</summary>
+    public TimeSpan? SleepTimerRemaining { get; init; }
 }
 
 public enum PlaybackStatus

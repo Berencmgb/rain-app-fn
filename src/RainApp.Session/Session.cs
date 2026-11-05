@@ -16,6 +16,11 @@ public sealed class Session
     private TimeSpan _elapsedAccrued;
     private DateTimeOffset? _segmentStartedAt;
 
+    // Sleep Timer budget (glossary: Sleep Timer): remaining time drains only
+    // while playing. Null remaining means Off — the state at every launch.
+    private TimeSpan? _timerRemaining;
+    private DateTimeOffset? _timerRunningSince;
+
     public Session(SceneCatalog catalog, IClock clock, IAudioOutput audio)
     {
         _catalog = catalog;
@@ -63,6 +68,25 @@ public sealed class Session
         FreezeClock();
         Update(State with { Status = PlaybackStatus.Paused, ElapsedListening = _elapsedAccrued });
         _audio.Pause();
+    }
+
+    /// <summary>Intent: the user arms or replaces the Sleep Timer with a duration in
+    /// minutes, or sets it Off (null). An Off Sleep Timer never stops playback.</summary>
+    public void SetSleepTimer(int? minutes)
+    {
+        if (minutes is null)
+        {
+            _timerRemaining = null;
+            _timerRunningSince = null;
+        }
+        else
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(minutes.Value, 1);
+            _timerRemaining = TimeSpan.FromMinutes(minutes.Value);
+            _timerRunningSince = State.Status == PlaybackStatus.Playing ? _clock.UtcNow : null;
+        }
+
+        Update(State with { SleepTimerRemaining = _timerRemaining });
     }
 
     /// <summary>Intent: timer pulse from the UI. Publishes elapsed listening while playing.</summary>
