@@ -132,4 +132,69 @@ public class SessionNightsTests
         _session.Tick();
         Assert.Equal(1, _session.State.NightsTotal);
     }
+
+    [Fact]
+    public void ACompletedNightSurvivesARestartAndIsNotAwardedAgain()
+    {
+        _session.Select(TestScenes.RainOnWindow);
+        _clock.Advance(TimeSpan.FromMinutes(10));
+        _session.Tick();
+        _session.Pause();
+
+        var reopened = Reopen(out _);
+        Assert.Equal(1, reopened.State.NightsTotal);
+        Assert.Equal(TimeSpan.FromMinutes(10), reopened.State.ListeningToday);
+
+        // The day that already earned its Night is not counted a second time.
+        reopened.Play();
+        _clock.Advance(TimeSpan.FromMinutes(5));
+        reopened.Tick();
+        Assert.Equal(1, reopened.State.NightsTotal);
+    }
+
+    [Fact]
+    public void PartialListeningTodaySurvivesARestartAndCompletesTonight()
+    {
+        _session.Select(TestScenes.RainOnWindow);
+        _clock.Advance(TimeSpan.FromMinutes(4));
+        _session.Tick();
+        _session.Pause();
+
+        var reopened = Reopen(out _);
+        Assert.Equal(0, reopened.State.NightsTotal);
+        Assert.Equal(TimeSpan.FromMinutes(4), reopened.State.ListeningToday);
+
+        reopened.Play();
+        _clock.Advance(TimeSpan.FromMinutes(6));
+        reopened.Tick();
+
+        Assert.Equal(1, reopened.State.NightsTotal);
+    }
+
+    [Fact]
+    public void AStoredLedgerFromADifferentDayStartsFreshToday()
+    {
+        // Yesterday reached 7 minutes — not a Night. Lifetime total was 3.
+        _persistence.Save(new PersistedState
+        {
+            NightsTotal = 3,
+            ListeningDay = new DateOnly(2026, 11, 4),
+            MinutesToday = TimeSpan.FromMinutes(7),
+        });
+
+        var today = new Session(TestScenes.Catalog(), _clock, _audio, _persistence);
+        Assert.Equal(3, today.State.NightsTotal);
+        Assert.Equal(TimeSpan.Zero, today.State.ListeningToday);
+
+        today.Select(TestScenes.RainOnWindow);
+        _clock.Advance(TimeSpan.FromMinutes(10));
+        today.Tick();
+        Assert.Equal(4, today.State.NightsTotal);
+    }
+
+    private Session Reopen(out FakeAudioOutput audio)
+    {
+        audio = new FakeAudioOutput();
+        return new Session(TestScenes.Catalog(), _clock, audio, _persistence);
+    }
 }
