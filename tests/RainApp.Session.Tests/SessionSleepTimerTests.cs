@@ -157,7 +157,7 @@ public class SessionSleepTimerTests
         // Full from here on: no further level changes.
         _clock.Advance(TimeSpan.FromSeconds(10));
         _session.Tick();
-        Assert.Equal(4, _audio.Levels.Count);
+        Assert.Equal(3, _audio.Levels.Count);
     }
 
     [Fact]
@@ -170,7 +170,7 @@ public class SessionSleepTimerTests
 
         _session.Play();
 
-        Assert.Equal([0, 1, 0], _audio.Levels); // restarts from silence
+        Assert.Equal([0.0, 1.0, 0.0], _audio.Levels); // restarts from silence
         _clock.Advance(TimeSpan.FromSeconds(1));
         _session.Tick();
         Assert.Equal(0.5, _audio.Levels[^1], 3);

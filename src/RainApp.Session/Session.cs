@@ -58,6 +58,7 @@ public sealed class Session
             Status = PlaybackStatus.Playing,
             ElapsedListening = TimeSpan.Zero,
         });
+        StartFade(0, 1, FadeIn); // manual start never snaps on
         _audio.Play(scene.AudioAsset, scene.Title);
     }
 
@@ -69,6 +70,7 @@ public sealed class Session
         _segmentStartedAt = _clock.UtcNow;
         if (_timerRemaining is not null) _timerRunningSince = _clock.UtcNow;
         Update(State with { Status = PlaybackStatus.Playing });
+        StartFade(0, 1, FadeIn); // every resume fades in
         _audio.Resume();
     }
 
@@ -79,6 +81,7 @@ public sealed class Session
 
         FreezeClock();
         AdvanceSleepTimerToNow();
+        _fadeStartedAt = null; // the level freezes with the paused audio
         Update(State with
         {
             Status = PlaybackStatus.Paused,
