@@ -56,6 +56,7 @@ public sealed class Session
         if (State.Status != PlaybackStatus.Paused) return;
 
         _segmentStartedAt = _clock.UtcNow;
+        if (_timerRemaining is not null) _timerRunningSince = _clock.UtcNow;
         Update(State with { Status = PlaybackStatus.Playing });
         _audio.Resume();
     }
@@ -66,7 +67,13 @@ public sealed class Session
         if (State.Status != PlaybackStatus.Playing) return;
 
         FreezeClock();
-        Update(State with { Status = PlaybackStatus.Paused, ElapsedListening = _elapsedAccrued });
+        AdvanceSleepTimerToNow();
+        Update(State with
+        {
+            Status = PlaybackStatus.Paused,
+            ElapsedListening = _elapsedAccrued,
+            SleepTimerRemaining = _timerRemaining,
+        });
         _audio.Pause();
     }
 
@@ -89,16 +96,28 @@ public sealed class Session
         Update(State with { SleepTimerRemaining = _timerRemaining });
     }
 
-    /// <summary>Intent: timer pulse from the UI. Publishes elapsed listening while playing.</summary>
+    /// <summary>Intent: timer pulse from the UI. Publishes elapsed listening and the Sleep
+    /// Timer countdown while playing; a paused countdown simply waits.</summary>
     public void Tick()
     {
         if (State.Status != PlaybackStatus.Playing) return;
 
-        Update(State with { ElapsedListening = ElapsedNow() });
+        AdvanceSleepTimerToNow();
+        Update(State with { ElapsedListening = ElapsedNow(), SleepTimerRemaining = _timerRemaining });
     }
 
     private TimeSpan ElapsedNow() =>
         _elapsedAccrued + (_segmentStartedAt.HasValue ? _clock.UtcNow - _segmentStartedAt.Value : TimeSpan.Zero);
+
+    /// <summary>Drains the Sleep Timer budget up to now; only ever runs while playing.</summary>
+    private void AdvanceSleepTimerToNow()
+    {
+        if (_timerRemaining is null || _timerRunningSince is null) return;
+
+        var remaining = _timerRemaining.Value - (_clock.UtcNow - _timerRunningSince.Value);
+        _timerRemaining = remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
+        _timerRunningSince = _clock.UtcNow;
+    }
 
     private void FreezeClock()
     {
