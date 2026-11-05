@@ -111,7 +111,7 @@ public class SessionSleepTimerTests
     }
 
     [Fact]
-    public void ExpiryFadesToSilenceThenStopsAndReturnsToIdle()
+    public void ExpiryFadesToSilenceThenStopsWithTheSceneStillSelected()
     {
         _session.Select(TestScenes.RainOnWindow);
         _session.SetSleepTimer(15);
@@ -131,13 +131,60 @@ public class SessionSleepTimerTests
         Assert.Equal(PlaybackStatus.FadingOut, _session.State.Status);
         Assert.Equal(0.5, _audio.Levels[^1], 3);
 
-        // End of the fade: silence, then stop; the UI returns to idle.
+        // End of the fade: silence, then stop. The player returns to rest with the
+        // Scene still selected and not playing — the cold-start shape, so the ring
+        // and the play control keep working (spec: the list never dead-ends).
         _clock.Advance(TimeSpan.FromSeconds(5));
         _session.Tick();
         Assert.Equal(0.0, _audio.Levels[^1], 3);
         Assert.Contains("stop", _audio.Log);
-        Assert.Equal(PlaybackStatus.Idle, _session.State.Status);
-        Assert.Null(_session.State.CurrentSceneId);
+        Assert.Equal(PlaybackStatus.Paused, _session.State.Status);
+        Assert.Equal(TestScenes.RainOnWindow, _session.State.CurrentSceneId);
+        Assert.Equal(TimeSpan.Zero, _session.State.ElapsedListening);
+        Assert.Null(_session.State.SleepTimerRemaining);
+    }
+
+    [Fact]
+    public void AfterTheSessionEndsTheRingStillWalks()
+    {
+        _session.Select(TestScenes.RainOnWindow);
+        _session.SetSleepTimer(15);
+        _clock.Advance(TimeSpan.FromMinutes(15));
+        _session.Tick(); // expired: fading out
+        _clock.Advance(TimeSpan.FromSeconds(10));
+        _session.Tick(); // …faded: at rest, Scene still selected
+        Assert.Equal(PlaybackStatus.Paused, _session.State.Status);
+        _audio.Log.Clear();
+
+        _session.Next();
+
+        Assert.Equal(TestScenes.OceanWaves, _session.State.CurrentSceneId);
+        Assert.Equal(PlaybackStatus.Paused, _session.State.Status); // no audio from a ring step…
+        Assert.Contains($"load {TestScenes.OceanWaves}.m4a", _audio.Log[^1]);
+
+        _session.Previous(); // …and again, straight back around the ring
+
+        Assert.Equal(TestScenes.RainOnWindow, _session.State.CurrentSceneId);
+    }
+
+    [Fact]
+    public void AfterTheSessionEndsPlayStartsTheSceneAgainWithAFadeIn()
+    {
+        _session.Select(TestScenes.RainOnWindow);
+        _session.SetSleepTimer(15);
+        _clock.Advance(TimeSpan.FromMinutes(15));
+        _session.Tick();
+        _clock.Advance(TimeSpan.FromSeconds(10));
+        _session.Tick();
+        Assert.Equal(PlaybackStatus.Paused, _session.State.Status);
+
+        _session.Play();
+
+        Assert.Equal(PlaybackStatus.Playing, _session.State.Status);
+        Assert.Equal("resume", _audio.Log[^1]);
+        _clock.Advance(TimeSpan.FromSeconds(1));
+        _session.Tick();
+        Assert.Equal(0.5, _audio.Levels[^1], 3); // fades in like any resume, never snaps on
     }
 
     [Fact]

@@ -88,11 +88,12 @@ public class SessionVolumeTests
         _session.Tick();
         Assert.Equal(0.25, _audio.Levels[^1], 3);
 
-        // Silence, stop, idle — and the master volume never moved.
+        // Silence, stop, at rest with the Scene still selected — and the master
+        // volume never moved.
         _clock.Advance(TimeSpan.FromSeconds(5));
         _session.Tick();
         Assert.Equal(0.0, _audio.Levels[^1], 3);
-        Assert.Equal(PlaybackStatus.Idle, _session.State.Status);
+        Assert.Equal(PlaybackStatus.Paused, _session.State.Status);
         Assert.Equal(0.5, _session.State.Volume);
 
         // The next session fades in from silence to the same master level.

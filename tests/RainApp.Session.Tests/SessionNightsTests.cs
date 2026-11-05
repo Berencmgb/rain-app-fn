@@ -61,7 +61,7 @@ public class SessionNightsTests
         _clock.Advance(TimeSpan.FromSeconds(10));
         _session.Tick(); // fade reaches silence, the session is over
 
-        Assert.Equal(PlaybackStatus.Idle, _session.State.Status);
+        Assert.Equal(PlaybackStatus.Paused, _session.State.Status); // at rest, Scene still selected
         Assert.Equal(TimeSpan.FromMinutes(4), _session.State.ListeningToday);
     }
 

@@ -326,14 +326,22 @@ public sealed class Session
         });
     }
 
-    /// <summary>Fade reached silence: stop the audio and return the UI to idle.
-    /// The master volume outlives the session; only the envelope resets.</summary>
+    /// <summary>Fade reached silence: stop the audio and let the player come to rest.
+    /// The Scene stays SELECTED and not playing — the cold-start shape, chosen so the
+    /// ring and the play control keep working after a session (spec story 8: the list
+    /// never dead-ends). The master volume outlives the session; only the envelope and
+    /// this Scene's elapsed clock reset — a new listen starts like any paused Scene.</summary>
     private void FinishFadeOut()
     {
         _envelope = 1.0; // the next start fades in from silence again
         _sentLevel = 1.0; // …and its first level is sent, as at any fresh start
+        _elapsedAccrued = TimeSpan.Zero; // elapsed belongs to the listen that just ended
         _audio.Stop();
-        Update(new SessionState { Volume = _masterVolume });
+        Update(State with
+        {
+            Status = PlaybackStatus.Paused,
+            ElapsedListening = TimeSpan.Zero,
+        });
     }
 
     /// <summary>The user changed their mind before the fade reached silence: the audio
