@@ -26,6 +26,9 @@ public sealed class Session
     private DateTimeOffset? _timerRunningSince;
 
     // Output-level envelope: fades are ramped tick-by-tick through the clock.
+    // The port always sees master volume × envelope — fades ramp around the
+    // user's volume and never reset it.
+    private double _masterVolume = 1.0;
     private double _outputLevel = 1.0;
     private double _fadeFrom;
     private double _fadeTo;
@@ -42,6 +45,18 @@ public sealed class Session
     public SessionState State { get; private set; } = new();
 
     public event Action<SessionState>? StateChanged;
+
+    /// <summary>Intent: set the master volume (0 = silence, 1 = full scale). Values
+    /// outside the range are clamped. It survives Scene switches, pauses and fades;
+    /// every level Session sends to the output is master volume × fade envelope.</summary>
+    public void SetVolume(double volume)
+    {
+        var level = Math.Clamp(volume, 0.0, 1.0);
+        if (level == _masterVolume) return;
+
+        _masterVolume = level;
+        Update(State with { Volume = level });
+    }
 
     /// <summary>Intent: the user tapped a Scene — select it and start it playing.</summary>
     public void Select(string sceneId)

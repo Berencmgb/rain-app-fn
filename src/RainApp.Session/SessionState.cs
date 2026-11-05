@@ -11,6 +11,9 @@ public sealed record SessionState
 
     /// <summary>Remaining Sleep Timer time, or null while Off (never armed at launch).</summary>
     public TimeSpan? SleepTimerRemaining { get; init; }
+
+    /// <summary>Master volume (0 = silence, 1 = full scale); full at launch.</summary>
+    public double Volume { get; init; } = 1.0;
 }
 
 public enum PlaybackStatus
