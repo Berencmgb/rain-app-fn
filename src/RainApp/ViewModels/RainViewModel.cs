@@ -28,6 +28,8 @@ public sealed class RainViewModel : INotifyPropertyChanged
 
         TogglePlayCommand = new Command(TogglePlay);
         OpenSleepTimerCommand = new Command(async () => await OpenSleepTimerAsync());
+        NextSceneCommand = new Command(() => _session.Next());
+        PreviousSceneCommand = new Command(() => _session.Previous());
 
         _ticker = Dispatcher.GetForCurrentThread().CreateTimer();
         _ticker.Interval = TimeSpan.FromMilliseconds(100);
@@ -40,6 +42,8 @@ public sealed class RainViewModel : INotifyPropertyChanged
 
     public ICommand TogglePlayCommand { get; }
     public ICommand OpenSleepTimerCommand { get; }
+    public ICommand NextSceneCommand { get; }
+    public ICommand PreviousSceneCommand { get; }
 
     public bool HasSelection => _session.State.CurrentSceneId is not null;
     public string? CurrentSceneId => _session.State.CurrentSceneId;

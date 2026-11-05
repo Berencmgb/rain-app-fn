@@ -8,6 +8,10 @@ public interface IAudioOutput
 {
     void Play(string audioAsset, string title);
 
+    /// <summary>Make this Scene's audio the current track without starting it
+    /// (Scene switched while paused); a later Resume continues from this track.</summary>
+    void Load(string audioAsset, string title);
+
     void Pause();
 
     /// <summary>Continue the current track from where it was paused.</summary>

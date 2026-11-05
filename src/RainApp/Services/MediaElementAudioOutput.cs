@@ -23,14 +23,27 @@ public sealed class MediaElementAudioOutput : IAudioOutput
     public void Play(string audioAsset, string title)
     {
         var player = RequirePlayer();
-        if (_loadedAsset != audioAsset)
-        {
-            player.Source = MediaSource.FromResource(audioAsset);
-            player.MetadataTitle = title;
-            player.MetadataArtist = "Rain App";
-            _loadedAsset = audioAsset;
-        }
+        LoadAsset(player, audioAsset, title);
         player.Play();
+    }
+
+    /// <summary>Setting a new Source can start playing on some platforms, so the
+    /// pause is explicit: Load must never start audio.</summary>
+    public void Load(string audioAsset, string title)
+    {
+        var player = RequirePlayer();
+        if (_loadedAsset == audioAsset) return;
+        LoadAsset(player, audioAsset, title);
+        player.Pause();
+    }
+
+    private void LoadAsset(MediaElement player, string audioAsset, string title)
+    {
+        if (_loadedAsset == audioAsset) return;
+        player.Source = MediaSource.FromResource(audioAsset);
+        player.MetadataTitle = title;
+        player.MetadataArtist = "Rain App";
+        _loadedAsset = audioAsset;
     }
 
     public void Pause() => RequirePlayer().Pause();

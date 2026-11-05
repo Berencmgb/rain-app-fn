@@ -3,8 +3,8 @@ namespace RainApp;
 /// <summary>
 /// The single test seam (ADR-0003): plain C#, no MAUI types. Driven by intents,
 /// observed via StateChanged. All time flows through the injected clock.
-/// Later tickets attach here: Sleep Timer + fades (#3), ring navigation (#4),
-/// volume (#5), Night accrual (#6), Interruption policy (#7).
+/// Later tickets attach here: volume (#5), Night accrual (#6), Interruption
+/// policy (#7). Sleep Timer + fades (#3) and Scene-ring navigation (#4) are in.
 /// </summary>
 public sealed class Session
 {
@@ -60,6 +60,49 @@ public sealed class Session
         });
         StartFade(0, 1, FadeIn); // manual start never snaps on
         _audio.Play(scene.AudioAsset, scene.Title);
+    }
+
+    /// <summary>Intent: walk the Scene list as a ring — select the next Scene
+    /// (wrapping past the end).</summary>
+    public void Next() => StepRing(+1);
+
+    /// <summary>Intent: walk the Scene list as a ring — select the previous Scene
+    /// (wrapping past the start).</summary>
+    public void Previous() => StepRing(-1);
+
+    private void StepRing(int delta)
+    {
+        if (State.CurrentSceneId is null) return;
+
+        var scenes = _catalog.Scenes;
+        var index = -1;
+        for (var i = 0; i < scenes.Count; i++)
+        {
+            if (scenes[i].Id == State.CurrentSceneId) { index = i; break; }
+        }
+        if (index < 0) return;
+
+        var next = scenes[(index + delta + scenes.Count) % scenes.Count];
+
+        if (State.Status == PlaybackStatus.Paused)
+        {
+            // Paused: navigation changes the selection only — no audio starts, the
+            // Sleep Timer keeps waiting, and the new Scene is loaded so a later
+            // resume picks it up. Elapsed belongs to the new Scene, like any switch.
+            _elapsedAccrued = TimeSpan.Zero;
+            _segmentStartedAt = null;
+            Update(State with
+            {
+                CurrentSceneId = next.Id,
+                ElapsedListening = TimeSpan.Zero,
+            });
+            _audio.Load(next.AudioAsset, next.Title);
+            return;
+        }
+
+        // Playing or fading out: switching is exactly a tap on the next tile —
+        // the armed Sleep Timer carries over untouched.
+        Select(next.Id);
     }
 
     /// <summary>Intent: resume the paused Scene.</summary>

@@ -58,8 +58,8 @@
                 <Label Text="SOUND SCENES" TextColor="{StaticResource TextSecondary}"
                        FontSize="12" FontAttributes="Bold" Padding="4,6,4,12" />
 
-                <!-- Scene catalog entries: one row per Scene (ticket #4 grows this
-                     list to seven; the tile template is already list-driven). -->
+                <!-- Scene catalog entries: one row per Scene, driven by AppScenes;
+                     the list order is the ring prev/next walk. -->
                 <VerticalStackLayout Spacing="14" BindableLayout.ItemsSource="{Binding Scenes}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="vm:SceneTileViewModel">
@@ -183,9 +183,10 @@
                              Color="{StaticResource TrackBackground}" VerticalOptions="Center" />
                 </Grid>
 
-                <!-- Controls: the timer opens the Sleep Timer sheet (#3); prev / next are
-                     the Scene-ring navigation hooks (ticket #4 wires the ring) and the
-                     volume control is inert (…#5). -->
+                <!-- Controls: the timer opens the Sleep Timer sheet (#3); prev / next
+                     walk the Scene list as a ring (wrapping past the ends; while paused
+                     they change the selection without starting audio); the volume
+                     control is inert (…#5). -->
                 <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="18"
                       HorizontalOptions="Center">
                     <Image Source="ctrl_timer.svg" WidthRequest="21" HeightRequest="21" Opacity="0.9"
@@ -195,7 +196,11 @@
                         </Image.GestureRecognizers>
                     </Image>
                     <Image Grid.Column="1" Source="ctrl_prev.svg" WidthRequest="24" HeightRequest="24"
-                           Opacity="0.5" VerticalOptions="Center" />
+                           Opacity="0.5" VerticalOptions="Center">
+                        <Image.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding PreviousSceneCommand}" />
+                        </Image.GestureRecognizers>
+                    </Image>
 
                     <Border Grid.Column="2" WidthRequest="58" HeightRequest="58" StrokeThickness="0"
                             StrokeShape="Ellipse" Background="{StaticResource PlayButtonBrush}">
@@ -210,7 +215,11 @@
                     </Border>
 
                     <Image Grid.Column="3" Source="ctrl_next.svg" WidthRequest="24" HeightRequest="24"
-                           Opacity="0.5" VerticalOptions="Center" />
+                           Opacity="0.5" VerticalOptions="Center">
+                        <Image.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding NextSceneCommand}" />
+                        </Image.GestureRecognizers>
+                    </Image>
                     <Image Grid.Column="4" Source="ctrl_volume.svg" WidthRequest="21" HeightRequest="21"
                            Opacity="0.35" VerticalOptions="Center" />
                 </Grid>
