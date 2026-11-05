@@ -3,8 +3,9 @@ namespace RainApp;
 /// <summary>
 /// The single test seam (ADR-0003): plain C#, no MAUI types. Driven by intents,
 /// observed via StateChanged. All time flows through the injected clock.
-/// Later tickets attach here: volume (#5), Night accrual (#6), Interruption
-/// policy (#7). Sleep Timer + fades (#3) and Scene-ring navigation (#4) are in.
+/// Sleep Timer + fades (#3), Scene-ring navigation (#4) and master volume (#5)
+/// are in. Later tickets attach here: Night accrual (#6), Interruption
+/// policy (#7).
 /// </summary>
 public sealed class Session
 {
