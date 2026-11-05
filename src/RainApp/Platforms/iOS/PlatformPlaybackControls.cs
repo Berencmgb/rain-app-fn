@@ -58,10 +58,10 @@ internal static class PlatformPlaybackControls
         var commands = MPRemoteCommandCenter.Shared;
         commands.PlayCommand.AddTarget(_ => { session.Play(); return MPRemoteCommandHandlerStatus.Success; });
         commands.PauseCommand.AddTarget(_ => { session.Pause(); return MPRemoteCommandHandlerStatus.Success; });
+        // Headset / lock-screen "double press": the obvious toggle, decided by Session.
         commands.TogglePlayPauseCommand.AddTarget(_ =>
         {
-            if (session.State.Status == PlaybackStatus.Playing) session.Pause();
-            else session.Play();
+            session.Toggle();
             return MPRemoteCommandHandlerStatus.Success;
         });
 

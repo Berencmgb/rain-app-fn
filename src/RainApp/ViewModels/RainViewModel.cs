@@ -97,25 +97,18 @@ public sealed class RainViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    /// <summary>Tap on a Scene card: the obvious toggle (story: tap plays, re-tap pauses).</summary>
+    /// <summary>Tap on a Scene card: the obvious toggle (story: tap plays, re-tap
+    /// pauses). The play/pause-vs-select decision is Session's Toggle intent.</summary>
     internal void ToggleTile(SceneTileViewModel tile)
     {
         DismissVolume();
-        if (tile.Id == _session.State.CurrentSceneId)
-        {
-            if (IsPlaying) _session.Pause(); else _session.Play();
-        }
-        else
-        {
-            _session.Select(tile.Id);
-        }
+        _session.Toggle(tile.Id);
     }
 
     private void TogglePlay()
     {
         DismissVolume();
-        if (!HasSelection) return;
-        if (IsPlaying) _session.Pause(); else _session.Play();
+        _session.Toggle();
     }
 
     /// <summary>Any other interaction is a "tap elsewhere" for the volume slider.</summary>
@@ -140,17 +133,19 @@ public sealed class RainViewModel : INotifyPropertyChanged
     {
         // The mockup's animation-play-state: icon and equalizer clocks run
         // while audio is live (through the fade-out too) and freeze otherwise.
-        IconAnimation.SetAnimating(state.Status is PlaybackStatus.Playing or PlaybackStatus.FadingOut);
+        // "Audio is live" is Session's one derived answer (ADR-0003), never
+        // re-typed here.
+        IconAnimation.SetAnimating(state.IsAudioLive);
 
         if (_ticker is not null)
         {
             // Ticks drive fades and the countdown: run while audio is live,
             // including through the fade-out that ends a session.
-            if (state.Status is PlaybackStatus.Playing or PlaybackStatus.FadingOut && !_ticker.IsRunning)
+            if (state.IsAudioLive && !_ticker.IsRunning)
             {
                 _ticker.Start();
             }
-            else if (state.Status is not (PlaybackStatus.Playing or PlaybackStatus.FadingOut) && _ticker.IsRunning)
+            else if (!state.IsAudioLive && _ticker.IsRunning)
             {
                 _ticker.Stop();
             }

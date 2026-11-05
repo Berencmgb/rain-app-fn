@@ -167,6 +167,28 @@ public sealed class Session
         Select(next.Id);
     }
 
+    /// <summary>Intent: the obvious toggle (spec story 6) — a Scene-tile tap, the
+    /// player's play/pause button and the lock-screen toggle are the same decision,
+    /// made here once. A Scene other than the current one is a select. The current
+    /// Scene — or no Scene named at all — pauses while audio plays and plays otherwise:
+    /// a paused Scene resumes with a fade-in, and a pending Sleep Timer fade-out is a
+    /// "changed my mind" (playback simply continues), never a pause. Nothing selected
+    /// and nothing named: nothing to toggle.</summary>
+    public void Toggle(string? sceneId = null)
+    {
+        if (sceneId is not null && sceneId != State.CurrentSceneId)
+        {
+            Select(sceneId);
+            return;
+        }
+        if (State.Status == PlaybackStatus.Playing)
+        {
+            Pause();
+            return;
+        }
+        if (State.CurrentSceneId is not null) Play();
+    }
+
     /// <summary>Intent: resume the paused Scene.</summary>
     public void Play()
     {
