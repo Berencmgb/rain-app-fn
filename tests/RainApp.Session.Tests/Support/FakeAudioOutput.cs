@@ -15,6 +15,8 @@ public sealed class FakeAudioOutput : IAudioOutput
 
     public void Play(string audioAsset, string title) => Log.Add($"play {audioAsset} ({title})");
 
+    public void Load(string audioAsset, string title) => Log.Add($"load {audioAsset} ({title})");
+
     public void Pause() => Log.Add("pause");
 
     public void Resume() => Log.Add("resume");
