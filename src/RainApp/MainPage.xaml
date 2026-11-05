@@ -1,0 +1,206 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:RainApp"
+             xmlns:controls="clr-namespace:RainApp.Controls"
+             xmlns:conv="clr-namespace:RainApp.Converters"
+             xmlns:xct="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             x:Class="RainApp.MainPage"
+             x:DataType="vm:RainViewModel"
+             Shell.NavBarIsVisible="False"
+             NavigationPage.HasNavigationBar="False"
+             BackgroundColor="{StaticResource PageBackground}">
+
+    <ContentPage.Resources>
+        <conv:InvertedBoolConverter x:Key="Invert" />
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="*,Auto">
+
+        <!-- Ambient glow behind the header (mockup .phone::before) -->
+        <BoxView Grid.Row="0"
+                 WidthRequest="480" HeightRequest="380" CornerRadius="240"
+                 BackgroundColor="Transparent"
+                 Background="{StaticResource AmbientGlowBrush}"
+                 HorizontalOptions="Center" VerticalOptions="Start"
+                 TranslationY="-190" InputTransparent="True" />
+
+        <ScrollView Grid.Row="0">
+            <VerticalStackLayout Padding="20,0,20,24" Spacing="0">
+
+                <!-- Header -->
+                <Grid ColumnDefinitions="*,Auto" Padding="4,18,4,20">
+                    <VerticalStackLayout Spacing="2" VerticalOptions="Start">
+                        <HorizontalStackLayout Spacing="10">
+                            <Label Text="🌙" FontSize="26" VerticalTextAlignment="Center" />
+                            <Label Text="Driftly" FontSize="30" FontAttributes="Bold"
+                                   TextColor="{StaticResource TextPrimary}" />
+                        </HorizontalStackLayout>
+                        <Label Text="Wind down. Pick a sound to drift off."
+                               TextColor="{StaticResource TextSecondary}" FontSize="14" />
+                    </VerticalStackLayout>
+
+                    <!-- Nights badge (mockup). Counting Nights is ticket #6;
+                         this badge wires up then — the surface exists now. -->
+                    <Border Grid.Column="1" VerticalOptions="Start" Margin="0,6,0,0"
+                            BackgroundColor="{StaticResource AccentSoft}"
+                            StrokeThickness="0" StrokeShape="RoundRectangle 20"
+                            Padding="13,6,12,6">
+                        <VerticalStackLayout Spacing="0">
+                            <Label Text="0" TextColor="White" FontSize="14" FontAttributes="Bold"
+                                   HorizontalTextAlignment="Center" />
+                            <Label Text="nights" TextColor="{StaticResource NightsLabel}" FontSize="10"
+                                   HorizontalTextAlignment="Center" />
+                        </VerticalStackLayout>
+                    </Border>
+                </Grid>
+
+                <Label Text="SOUND SCENES" TextColor="{StaticResource TextSecondary}"
+                       FontSize="12" FontAttributes="Bold" Padding="4,6,4,12" />
+
+                <!-- Scene catalog entries: one row per Scene (ticket #4 grows this
+                     list to seven; the tile template is already list-driven). -->
+                <VerticalStackLayout Spacing="14" BindableLayout.ItemsSource="{Binding Scenes}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SceneTileViewModel">
+                            <Border BackgroundColor="{StaticResource CardBackground}"
+                                    Stroke="{StaticResource CardBorder}" StrokeThickness="1"
+                                    StrokeShape="RoundRectangle 22" Padding="18,16">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding TapCommand}" />
+                                </Border.GestureRecognizers>
+                                <Border.Triggers>
+                                    <!-- Active tile highlight (mockup .card.playing) -->
+                                    <DataTrigger TargetType="Border" Binding="{Binding IsCurrent}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource ActiveCardBrush}" />
+                                        <Setter Property="Stroke" Value="{StaticResource ActiveCardBorder}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+
+                                <Grid ColumnDefinitions="56,*,Auto" ColumnSpacing="16">
+                                    <Border StrokeThickness="0" StrokeShape="RoundRectangle 18"
+                                            InputTransparent="True">
+                                        <controls:SceneIconView Icon="{Binding Icon}" />
+                                    </Border>
+
+                                    <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                                        <Label Text="{Binding Title}" TextColor="{StaticResource TextPrimary}"
+                                               FontSize="16" FontAttributes="Bold" />
+                                        <Label Text="{Binding Tagline}" TextColor="{StaticResource TextSecondary}"
+                                               FontSize="13" LineBreakMode="TailTruncation" />
+                                        <!-- Equalizer bars on the active tile. Static frame now;
+                             the mockup's 1s bounce animation lands with ticket #8. -->
+                                        <HorizontalStackLayout Spacing="3" Padding="0,8,0,0"
+                                                               IsVisible="{Binding IsCurrent}">
+                                            <BoxView WidthRequest="3" HeightRequest="11" CornerRadius="2"
+                                                     Color="{StaticResource Accent}" VerticalOptions="End" />
+                                            <BoxView WidthRequest="3" HeightRequest="6" CornerRadius="2"
+                                                     Color="{StaticResource Accent}" VerticalOptions="End" />
+                                            <BoxView WidthRequest="3" HeightRequest="14" CornerRadius="2"
+                                                     Color="{StaticResource Accent}" VerticalOptions="End" />
+                                            <BoxView WidthRequest="3" HeightRequest="8" CornerRadius="2"
+                                                     Color="{StaticResource Accent}" VerticalOptions="End" />
+                                        </HorizontalStackLayout>
+                                    </VerticalStackLayout>
+
+                                    <VerticalStackLayout Grid.Column="2" Spacing="6"
+                                                         HorizontalOptions="End" VerticalOptions="Center">
+                                        <!-- Scenes loop forever: no end time is shown anywhere. -->
+                                        <Label Text="∞ loop" TextColor="{StaticResource TextSecondary}"
+                                               FontSize="12" HorizontalTextAlignment="End" />
+                                        <Border WidthRequest="38" HeightRequest="38" StrokeThickness="0"
+                                                StrokeShape="Ellipse" HorizontalOptions="End"
+                                                BackgroundColor="{StaticResource PlayDotBackground}">
+                                            <Border.Triggers>
+                                                <DataTrigger TargetType="Border" Binding="{Binding IsCurrent}" Value="True">
+                                                    <Setter Property="BackgroundColor" Value="{StaticResource Accent}" />
+                                                </DataTrigger>
+                                            </Border.Triggers>
+                                            <Grid Padding="12">
+                                                <Image Source="icon_play_light.svg"
+                                                       IsVisible="{Binding ShowsPlayIcon}" />
+                                                <Image Source="icon_pause_light.svg"
+                                                       IsVisible="{Binding ShowsPauseIcon}" />
+                                            </Grid>
+                                        </Border>
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- Bottom player -->
+        <Border Grid.Row="1" IsVisible="{Binding HasSelection}"
+                BackgroundColor="{StaticResource PlayerSurface}"
+                Stroke="{StaticResource PlayerBorder}" StrokeThickness="1"
+                StrokeShape="RoundRectangle 28,28,0,0">
+            <VerticalStackLayout Padding="22,14,22,26" Spacing="12">
+
+                <Grid ColumnDefinitions="44,*" ColumnSpacing="12">
+                    <Border StrokeThickness="0" StrokeShape="RoundRectangle 14" InputTransparent="True">
+                        <controls:SceneIconView Icon="{Binding PlayerIcon}" />
+                    </Border>
+                    <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                        <Label Text="{Binding PlayerTitle}" TextColor="{StaticResource TextPrimary}"
+                               FontSize="14" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                        <HorizontalStackLayout Spacing="6">
+                            <BoxView WidthRequest="6" HeightRequest="6" CornerRadius="3"
+                                     Color="{StaticResource LiveGreen}" VerticalOptions="Center"
+                                     IsVisible="{Binding IsPlaying}" />
+                            <Label Text="{Binding StatusText}" TextColor="{StaticResource Accent}"
+                                   FontSize="12" VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                    <!-- Sleep Timer chip attaches here (ticket #3). By design nothing else
+                         in the player shows time: elapsed is the only figure (no end time). -->
+                </Grid>
+
+                <!-- Elapsed listening time; no end time is ever shown (spec story 26). -->
+                <Grid ColumnDefinitions="40,*" ColumnSpacing="8">
+                    <Label Text="{Binding ElapsedText}" TextColor="{StaticResource TextSecondary}"
+                           FontSize="11" VerticalTextAlignment="Center" />
+                    <BoxView Grid.Column="1" HeightRequest="4" CornerRadius="2"
+                             Color="{StaticResource TrackBackground}" VerticalOptions="Center" />
+                </Grid>
+
+                <!-- Controls: prev / play / next are the Scene-ring navigation hooks
+                     (ticket #4 wires the ring); timer (…#3) and volume (…#5) are inert. -->
+                <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="18"
+                      HorizontalOptions="Center">
+                    <Image Source="ctrl_timer.svg" WidthRequest="21" HeightRequest="21" Opacity="0.35"
+                           VerticalOptions="Center" />
+                    <Image Grid.Column="1" Source="ctrl_prev.svg" WidthRequest="24" HeightRequest="24"
+                           Opacity="0.5" VerticalOptions="Center" />
+
+                    <Border Grid.Column="2" WidthRequest="58" HeightRequest="58" StrokeThickness="0"
+                            StrokeShape="Ellipse" Background="{StaticResource PlayButtonBrush}">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding TogglePlayCommand}" />
+                        </Border.GestureRecognizers>
+                        <Grid Padding="17">
+                            <Image Source="icon_pause_white.svg" IsVisible="{Binding IsPlaying}" />
+                            <Image Source="icon_play_white.svg"
+                                   IsVisible="{Binding IsPlaying, Converter={StaticResource Invert}}" />
+                        </Grid>
+                    </Border>
+
+                    <Image Grid.Column="3" Source="ctrl_next.svg" WidthRequest="24" HeightRequest="24"
+                           Opacity="0.5" VerticalOptions="Center" />
+                    <Image Grid.Column="4" Source="ctrl_volume.svg" WidthRequest="21" HeightRequest="21"
+                           Opacity="0.35" VerticalOptions="Center" />
+                </Grid>
+            </VerticalStackLayout>
+        </Border>
+
+        <!-- ONE long-lived MediaElement (ADR-0001); audio keeps playing with the
+             screen off via the declared iOS audio background mode. -->
+        <xct:MediaElement x:Name="Player"
+                          Grid.Row="1" WidthRequest="1" HeightRequest="1"
+                          HorizontalOptions="Start" VerticalOptions="Start"
+                          IsVisible="False" ShouldLoopPlayback="True" />
+    </Grid>
+</ContentPage>

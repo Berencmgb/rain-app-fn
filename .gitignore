@@ -1,0 +1,7 @@
+bin/
+obj/
+UserSettings.props
+*.user
+*.vs/
+*.idea/
+.DS_Store
