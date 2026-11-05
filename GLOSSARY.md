@@ -13,7 +13,7 @@ An optional user-chosen duration after which playback ends. When no Sleep Timer 
 _Avoid_: countdown, alarm
 
 **Night**:
-A calendar day on which the user played sound for a cumulative 10 minutes. The Nights count is a lifetime total of Nights, kept on-device only.
+A local calendar day (local midnight, never a UTC boundary) on which the user played sound for a cumulative 10 minutes. The Nights count is a lifetime total of Nights, kept on-device only.
 _Avoid_: streak, session
 
 **Mixing**:

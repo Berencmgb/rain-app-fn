@@ -25,8 +25,9 @@ public sealed record PersistedState
     public int NightsTotal { get; init; }
 
     /// <summary>
-    /// The calendar day (UTC) <see cref="MinutesToday"/> belongs to. A stale day is
-    /// retired on load: minutes never carry across a calendar day (glossary: Night).
+    /// The local calendar day <see cref="MinutesToday"/> belongs to (glossary: Night:
+    /// a local day). A stale day is retired on load: minutes never carry across a
+    /// local calendar day.
     /// </summary>
     public DateOnly? ListeningDay { get; init; }
 

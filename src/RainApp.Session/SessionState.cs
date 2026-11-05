@@ -18,8 +18,9 @@ public sealed record SessionState
     /// <summary>Lifetime total of Nights (glossary: Night), persisted on-device only.</summary>
     public int NightsTotal { get; init; }
 
-    /// <summary>Playing minutes accumulated toward a Night on the current calendar day;
-    /// reaching 10 awards the Night. Excludes time paused; never carries to the next day.</summary>
+    /// <summary>Playing minutes accumulated toward a Night on the current local calendar
+    /// day; reaching 10 awards the Night. Excludes time paused; never carries past local
+    /// midnight.</summary>
     public TimeSpan ListeningToday { get; init; }
 }
 
