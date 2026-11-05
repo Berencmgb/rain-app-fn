@@ -37,8 +37,10 @@ public sealed class MediaElementAudioOutput : IAudioOutput
 
     public void Attach(MediaElement player)
     {
+        // ADR-0001: looping is the native player's (ShouldLoopPlayback) and a
+        // re-Play on MediaEnded would put an audible gap in the loop, so there is
+        // deliberately no MediaEnded handler at all.
         player.ShouldLoopPlayback = true;
-        player.MediaEnded += OnEnded;
 #if ANDROID
         player.StateChanged += OnNativePlaybackStateChanged;
 #endif
@@ -122,10 +124,6 @@ public sealed class MediaElementAudioOutput : IAudioOutput
     public void SetOutputLevel(double level) => RequirePlayer().Volume = Math.Clamp(level, 0, 1);
 
     public void Stop() => RequirePlayer().Stop();
-
-    // ShouldLoopPlayback should never let MediaEnded fire; if it ever does,
-    // restart immediately (only safe fallback — never the normal path).
-    private void OnEnded(object? sender, EventArgs e) => _player?.Play();
 
 #if ANDROID
     /// <summary>The native player's own starts/pauses — driven by the media notification
