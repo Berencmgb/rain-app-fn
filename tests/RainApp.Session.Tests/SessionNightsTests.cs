@@ -61,7 +61,7 @@ public class SessionNightsTests
         _clock.Advance(TimeSpan.FromSeconds(10));
         _session.Tick(); // fade reaches silence, the session is over
 
-        Assert.Equal(PlaybackStatus.Idle, _session.State.Status);
+        Assert.Equal(PlaybackStatus.Paused, _session.State.Status); // at rest, Scene still selected
         Assert.Equal(TimeSpan.FromMinutes(4), _session.State.ListeningToday);
     }
 
@@ -131,6 +131,56 @@ public class SessionNightsTests
         _clock.Advance(TimeSpan.FromMinutes(10));
         _session.Tick();
         Assert.Equal(1, _session.State.NightsTotal);
+    }
+
+    [Fact]
+    public void PlayingAcrossTheUtcDayBoundaryWithinOneLocalDayKeepsOneLedger()
+    {
+        // A Night is a LOCAL calendar day (glossary: Night). Simulated zone UTC-8:
+        // the UTC day rolls over at 00:00 while the local evening is still young.
+        _clock.LocalZone = UtcOffset(TimeSpan.FromHours(-8));
+        _clock.Now = new DateTimeOffset(2026, 11, 5, 23, 56, 0, TimeSpan.Zero); // local: Nov 5, 15:56
+        _session.Select(TestScenes.RainOnWindow);
+        _clock.Advance(TimeSpan.FromMinutes(4)); // continuous playing crosses 00:00 UTC
+        _session.Tick();
+
+        // The UTC boundary means nothing here: the afternoon keeps one ledger.
+        Assert.Equal(TimeSpan.FromMinutes(4), _session.State.ListeningToday);
+        Assert.Equal(0, _session.State.NightsTotal);
+
+        _clock.Advance(TimeSpan.FromMinutes(6));
+        _session.Tick();
+        Assert.Equal(1, _session.State.NightsTotal);
+    }
+
+    [Fact]
+    public void TheLocalMidnightRolloverEarlsANewNightEvenWhileTheUtcDayHolds()
+    {
+        // Simulated zone UTC+9: local midnight arrives while UTC still reads Nov 5.
+        _clock.LocalZone = UtcOffset(TimeSpan.FromHours(9));
+        _clock.Now = new DateTimeOffset(2026, 11, 5, 13, 0, 0, TimeSpan.Zero); // local: Nov 5, 22:00
+        _session.Select(TestScenes.RainOnWindow);
+        _clock.Advance(TimeSpan.FromMinutes(10));
+        _session.Tick(); // local 23:10: Nov 5 has its Night
+        Assert.Equal(1, _session.State.NightsTotal);
+        _session.Pause();
+
+        _clock.Now = new DateTimeOffset(2026, 11, 5, 15, 5, 0, TimeSpan.Zero); // local: Nov 6, 00:35
+        _session.Play();
+        _clock.Advance(TimeSpan.FromMinutes(10));
+        _session.Tick();
+
+        // The new local day starts fresh and earns its own Night — while a UTC-day
+        // ledger would still be reading yesterday and refuse it.
+        Assert.Equal(2, _session.State.NightsTotal);
+        Assert.Equal(TimeSpan.FromMinutes(10), _session.State.ListeningToday);
+    }
+
+    /// <summary>A fixed-offset zone, so rollover tests never depend on real DST rules.</summary>
+    private static TimeZoneInfo UtcOffset(TimeSpan offset)
+    {
+        var label = $"UTC{offset.Hours:+0;-0;+0}";
+        return TimeZoneInfo.CreateCustomTimeZone(label, offset, label, label);
     }
 
     [Fact]

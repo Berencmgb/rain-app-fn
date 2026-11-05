@@ -167,6 +167,28 @@ public sealed class Session
         Select(next.Id);
     }
 
+    /// <summary>Intent: the obvious toggle (spec story 6) — a Scene-tile tap, the
+    /// player's play/pause button and the lock-screen toggle are the same decision,
+    /// made here once. A Scene other than the current one is a select. The current
+    /// Scene — or no Scene named at all — pauses while audio plays and plays otherwise:
+    /// a paused Scene resumes with a fade-in, and a pending Sleep Timer fade-out is a
+    /// "changed my mind" (playback simply continues), never a pause. Nothing selected
+    /// and nothing named: nothing to toggle.</summary>
+    public void Toggle(string? sceneId = null)
+    {
+        if (sceneId is not null && sceneId != State.CurrentSceneId)
+        {
+            Select(sceneId);
+            return;
+        }
+        if (State.Status == PlaybackStatus.Playing)
+        {
+            Pause();
+            return;
+        }
+        if (State.CurrentSceneId is not null) Play();
+    }
+
     /// <summary>Intent: resume the paused Scene.</summary>
     public void Play()
     {
@@ -326,14 +348,22 @@ public sealed class Session
         });
     }
 
-    /// <summary>Fade reached silence: stop the audio and return the UI to idle.
-    /// The master volume outlives the session; only the envelope resets.</summary>
+    /// <summary>Fade reached silence: stop the audio and let the player come to rest.
+    /// The Scene stays SELECTED and not playing — the cold-start shape, chosen so the
+    /// ring and the play control keep working after a session (spec story 8: the list
+    /// never dead-ends). The master volume outlives the session; only the envelope and
+    /// this Scene's elapsed clock reset — a new listen starts like any paused Scene.</summary>
     private void FinishFadeOut()
     {
         _envelope = 1.0; // the next start fades in from silence again
         _sentLevel = 1.0; // …and its first level is sent, as at any fresh start
+        _elapsedAccrued = TimeSpan.Zero; // elapsed belongs to the listen that just ended
         _audio.Stop();
-        Update(new SessionState { Volume = _masterVolume });
+        Update(State with
+        {
+            Status = PlaybackStatus.Paused,
+            ElapsedListening = TimeSpan.Zero,
+        });
     }
 
     /// <summary>The user changed their mind before the fade reached silence: the audio
@@ -402,15 +432,16 @@ public sealed class Session
     /// (glossary: Night). The day's first crossing awards it — once.</summary>
     private static readonly TimeSpan NightThreshold = TimeSpan.FromMinutes(10);
 
-    /// <summary>The calendar day (UTC) the clock currently reads.</summary>
-    private DateOnly Today => DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime);
+    /// <summary>The local calendar day the clock currently reads — a Night is a
+    /// local day (glossary: Night), so UTC boundaries carry no special meaning.</summary>
+    private DateOnly Today => DateOnly.FromDateTime(_clock.LocalNow.Date);
 
     /// <summary>Counts elapsed playing time into today's ledger; only ever called while
     /// Playing. The watermark advances with each call so every second counts exactly once.
     /// Crossing the Night threshold awards exactly one Night — later minutes that day
     /// only add to today's total, since a crossing needs a below-threshold before.
-    /// A calendar-day crossing retires yesterday's minutes: only time after the day
-    /// boundary counts toward the new day's Night.</summary>
+    /// A local-calendar-day crossing (glossary: Night: a local day) retires yesterday's
+    /// minutes: only time after the local day boundary counts toward the new day.</summary>
     private void AccumulateListeningToNow()
     {
         if (_listeningSince is null) return;
@@ -420,7 +451,10 @@ public sealed class Session
         {
             _listeningDay = Today;
             _listeningToday = TimeSpan.Zero;
-            var midnight = new DateTimeOffset(_listeningDay.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+            // Midnight opening today's local day, as the instant the clock reads it.
+            var local = _clock.LocalNow;
+            var midnight = new DateTimeOffset(_listeningDay.ToDateTime(TimeOnly.MinValue), local.Offset)
+                .ToUniversalTime();
             if (_listeningSince.Value < midnight) _listeningSince = midnight;
         }
 

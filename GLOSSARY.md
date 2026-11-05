@@ -9,11 +9,11 @@ A named, continuously looping ambient sound (e.g. Rain on Window). Every Scene l
 _Avoid_: track, sound card, preset
 
 **Sleep Timer**:
-An optional user-chosen duration after which playback ends. When no Sleep Timer is active, playback continues until the user stops it. The only element of the UI that expresses time is the active Sleep Timer countdown.
+An optional user-chosen duration after which playback ends. When no Sleep Timer is active, playback continues until the user stops it. The only elements of the UI that express time are the player's elapsed-listening readout — never a duration or an end-time, because Scenes loop forever and an ending invites exactly the arithmetic a sleepy user shouldn't do — and, only while one is active, the Sleep Timer countdown.
 _Avoid_: countdown, alarm
 
 **Night**:
-A calendar day on which the user played sound for a cumulative 10 minutes. The Nights count is a lifetime total of Nights, kept on-device only.
+A local calendar day (local midnight, never a UTC boundary) on which the user played sound for a cumulative 10 minutes. The Nights count is a lifetime total of Nights, kept on-device only.
 _Avoid_: streak, session
 
 **Mixing**:

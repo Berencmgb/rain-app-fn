@@ -6,6 +6,11 @@ public sealed record SessionState
     public string? CurrentSceneId { get; init; }
     public PlaybackStatus Status { get; init; } = PlaybackStatus.Idle;
 
+    /// <summary>Whether audio is live right now — playing, or in the gentle fade that
+    /// ends a session. The one derived answer (ADR-0003): the icon and equalizer clocks
+    /// and Session's own tick run on this, and callers never re-derive it from Status.</summary>
+    public bool IsAudioLive => Status is PlaybackStatus.Playing or PlaybackStatus.FadingOut;
+
     /// <summary>How long the current Scene has been listened to (excludes time paused).</summary>
     public TimeSpan ElapsedListening { get; init; }
 
@@ -18,8 +23,9 @@ public sealed record SessionState
     /// <summary>Lifetime total of Nights (glossary: Night), persisted on-device only.</summary>
     public int NightsTotal { get; init; }
 
-    /// <summary>Playing minutes accumulated toward a Night on the current calendar day;
-    /// reaching 10 awards the Night. Excludes time paused; never carries to the next day.</summary>
+    /// <summary>Playing minutes accumulated toward a Night on the current local calendar
+    /// day; reaching 10 awards the Night. Excludes time paused; never carries past local
+    /// midnight.</summary>
     public TimeSpan ListeningToday { get; init; }
 }
 
