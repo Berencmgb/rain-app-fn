@@ -26,10 +26,11 @@ public sealed class Session
     private DateTimeOffset? _timerRunningSince;
 
     // Output-level envelope: fades are ramped tick-by-tick through the clock.
-    // The port always sees master volume × envelope — fades ramp around the
-    // user's volume and never reset it.
+    // The port never sees the envelope alone — every call is master volume ×
+    // envelope, so fades ramp around the user's volume and never reset it.
     private double _masterVolume = 1.0;
-    private double _outputLevel = 1.0;
+    private double _envelope = 1.0;
+    private double _sentLevel = 1.0;
     private double _fadeFrom;
     private double _fadeTo;
     private TimeSpan _fadeDuration;
@@ -56,6 +57,7 @@ public sealed class Session
 
         _masterVolume = level;
         Update(State with { Volume = level });
+        ApplyOutputLevel();
     }
 
     /// <summary>Intent: the user tapped a Scene — select it and start it playing.</summary>
@@ -221,7 +223,7 @@ public sealed class Session
         FreezeClock();
         _timerRemaining = null;
         _timerRunningSince = null;
-        StartFade(_outputLevel, 0, FadeOut);
+        StartFade(_envelope, 0, FadeOut);
         Update(State with
         {
             Status = PlaybackStatus.FadingOut,
@@ -230,12 +232,14 @@ public sealed class Session
         });
     }
 
-    /// <summary>Fade reached silence: stop the audio and return the UI to idle.</summary>
+    /// <summary>Fade reached silence: stop the audio and return the UI to idle.
+    /// The master volume outlives the session; only the envelope resets.</summary>
     private void FinishFadeOut()
     {
-        _outputLevel = 1.0; // the next start fades in from silence again
+        _envelope = 1.0; // the next start fades in from silence again
+        _sentLevel = 1.0; // …and its first level is sent, as at any fresh start
         _audio.Stop();
-        Update(new SessionState());
+        Update(new SessionState { Volume = _masterVolume });
     }
 
     /// <summary>The user changed their mind before the fade reached silence: the audio
@@ -250,14 +254,14 @@ public sealed class Session
         StartFade(0, 1, FadeIn);
     }
 
-    /// <summary>Starts ramping the output level; the ramp advances with each tick.</summary>
+    /// <summary>Starts ramping the fade envelope; the ramp advances with each tick.</summary>
     private void StartFade(double from, double to, TimeSpan duration)
     {
         _fadeFrom = from;
         _fadeTo = to;
         _fadeDuration = duration;
         _fadeStartedAt = _clock.UtcNow;
-        SetOutputLevel(from);
+        SetEnvelope(from);
     }
 
     private void AdvanceFade()
@@ -268,19 +272,28 @@ public sealed class Session
         if (progress >= 1)
         {
             _fadeStartedAt = null;
-            SetOutputLevel(_fadeTo);
+            SetEnvelope(_fadeTo);
         }
         else if (progress > 0)
         {
-            SetOutputLevel(_fadeFrom + (_fadeTo - _fadeFrom) * progress);
+            SetEnvelope(_fadeFrom + (_fadeTo - _fadeFrom) * progress);
         }
     }
 
-    private void SetOutputLevel(double level)
+    private void SetEnvelope(double envelope)
     {
-        if (level == _outputLevel) return;
+        _envelope = envelope;
+        ApplyOutputLevel();
+    }
 
-        _outputLevel = level;
+    /// <summary>Whatever the user set is the level the audio plays at: the port only
+    /// ever sees master volume × fade envelope.</summary>
+    private void ApplyOutputLevel()
+    {
+        var level = _masterVolume * _envelope;
+        if (level == _sentLevel) return;
+
+        _sentLevel = level;
         _audio.SetOutputLevel(level);
     }
 
