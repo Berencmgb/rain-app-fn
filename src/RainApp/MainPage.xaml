@@ -140,7 +140,7 @@
                 StrokeShape="RoundRectangle 28,28,0,0">
             <VerticalStackLayout Padding="22,14,22,26" Spacing="12">
 
-                <Grid ColumnDefinitions="44,*" ColumnSpacing="12">
+                <Grid ColumnDefinitions="44,*,Auto" ColumnSpacing="12">
                     <Border StrokeThickness="0" StrokeShape="RoundRectangle 14" InputTransparent="True">
                         <controls:SceneIconView Icon="{Binding PlayerIcon}" />
                     </Border>
@@ -155,8 +155,24 @@
                                    FontSize="12" VerticalOptions="Center" />
                         </HorizontalStackLayout>
                     </VerticalStackLayout>
-                    <!-- Sleep Timer chip attaches here (ticket #3). By design nothing else
-                         in the player shows time: elapsed is the only figure (no end time). -->
+
+                    <!-- Sleep Timer chip (mockup .sleep-timer): visible only while a Sleep
+                         Timer is armed — the countdown it shows is the only time displayed
+                         besides elapsed listening. Tap offers 15/30/45/60/Off. -->
+                    <Border Grid.Column="2" VerticalOptions="Start" Margin="0,2,0,0"
+                            IsVisible="{Binding IsSleepTimerArmed}"
+                            BackgroundColor="{StaticResource ChipBackground}"
+                            StrokeThickness="0" StrokeShape="RoundRectangle 16" Padding="11,7">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenSleepTimerCommand}" />
+                        </Border.GestureRecognizers>
+                        <HorizontalStackLayout Spacing="5">
+                            <Image Source="ctrl_timer.svg" WidthRequest="12" HeightRequest="12"
+                                   VerticalOptions="Center" />
+                            <Label Text="{Binding SleepTimerText}" TextColor="{StaticResource TextSecondary}"
+                                   FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
+                        </HorizontalStackLayout>
+                    </Border>
                 </Grid>
 
                 <!-- Elapsed listening time; no end time is ever shown (spec story 26). -->
@@ -167,12 +183,17 @@
                              Color="{StaticResource TrackBackground}" VerticalOptions="Center" />
                 </Grid>
 
-                <!-- Controls: prev / play / next are the Scene-ring navigation hooks
-                     (ticket #4 wires the ring); timer (…#3) and volume (…#5) are inert. -->
+                <!-- Controls: the timer opens the Sleep Timer sheet (#3); prev / next are
+                     the Scene-ring navigation hooks (ticket #4 wires the ring) and the
+                     volume control is inert (…#5). -->
                 <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="18"
                       HorizontalOptions="Center">
-                    <Image Source="ctrl_timer.svg" WidthRequest="21" HeightRequest="21" Opacity="0.35"
-                           VerticalOptions="Center" />
+                    <Image Source="ctrl_timer.svg" WidthRequest="21" HeightRequest="21" Opacity="0.9"
+                           VerticalOptions="Center">
+                        <Image.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenSleepTimerCommand}" />
+                        </Image.GestureRecognizers>
+                    </Image>
                     <Image Grid.Column="1" Source="ctrl_prev.svg" WidthRequest="24" HeightRequest="24"
                            Opacity="0.5" VerticalOptions="Center" />
 

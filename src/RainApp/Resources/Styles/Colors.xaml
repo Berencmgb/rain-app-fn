@@ -21,6 +21,7 @@
     <Color x:Key="PlayDotBackground">#12FFFFFF</Color>   <!-- rgba(255,255,255,0.07) -->
     <Color x:Key="TrackBackground">#1AFFFFFF</Color>     <!-- rgba(255,255,255,0.1) -->
     <Color x:Key="PlayerBorder">#0FFFFFFF</Color>        <!-- rgba(255,255,255,0.06) -->
+    <Color x:Key="ChipBackground">#0FFFFFFF</Color>      <!-- rgba(255,255,255,0.06) -->
     <Color x:Key="NightsLabel">#C9C0FF</Color>
 
     <!-- Active card highlight: linear-gradient(135deg, rgba(139,124,246,0.22), rgba(139,124,246,0.08)) -->
