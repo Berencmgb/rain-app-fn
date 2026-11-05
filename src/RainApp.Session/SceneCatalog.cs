@@ -12,11 +12,18 @@ public sealed record SceneDescriptor(
 public enum SceneIcon
 {
     RainOnWindow,
+    OceanWaves,
+    DistantThunderstorm,
+    CracklingCampfire,
+    NightForest,
+    BrownWhiteNoise,
+    FanRoomHum,
 }
 
 /// <summary>
-/// Data-driven catalog of the available Scenes. One entry drives tile, player and playback.
-/// Ticket #4 extends this to the full seven-Scene list and ring navigation.
+/// Data-driven catalog of the available Scenes. One entry drives tile, player and
+/// playback: adding a Scene is one entry here plus its audio file in Resources/Raw.
+/// The entry order is the Scene ring that Next/Previous walk.
 /// </summary>
 public sealed class SceneCatalog
 {
