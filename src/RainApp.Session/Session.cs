@@ -16,6 +16,13 @@ public sealed class Session
     private readonly SceneCatalog _catalog;
     private readonly IClock _clock;
     private readonly IAudioOutput _audio;
+    private readonly IPersistence _persistence;
+
+    // Nights ledger (glossary: Night): playing time accrues to today through the
+    // same clock the fades run on; the lifetime total and today's minutes persist.
+    private int _nightsTotal;
+    private TimeSpan _listeningToday = TimeSpan.Zero;
+    private DateTimeOffset? _listeningSince;
 
     // Elapsed-listening stopwatch: time accrues only while playing.
     private TimeSpan _elapsedAccrued;
@@ -37,11 +44,12 @@ public sealed class Session
     private TimeSpan _fadeDuration;
     private DateTimeOffset? _fadeStartedAt;
 
-    public Session(SceneCatalog catalog, IClock clock, IAudioOutput audio)
+    public Session(SceneCatalog catalog, IClock clock, IAudioOutput audio, IPersistence persistence)
     {
         _catalog = catalog;
         _clock = clock;
         _audio = audio;
+        _persistence = persistence;
     }
 
     public SessionState State { get; private set; } = new();
@@ -69,6 +77,7 @@ public sealed class Session
 
         _elapsedAccrued = TimeSpan.Zero;
         _segmentStartedAt = _clock.UtcNow;
+        _listeningSince ??= _clock.UtcNow; // switching Scenes is continuous listening
 
         Update(State with
         {
@@ -194,6 +203,7 @@ public sealed class Session
                     BeginFadeOut();
                     return;
                 }
+                AccumulateListeningToNow();
                 Update(State with { ElapsedListening = ElapsedNow(), SleepTimerRemaining = _timerRemaining });
                 break;
 
@@ -304,9 +314,21 @@ public sealed class Session
         _segmentStartedAt = null;
     }
 
+    /// <summary>Counts elapsed playing time into today's ledger; only ever called while
+    /// Playing. The watermark advances with each call so every second counts exactly once.</summary>
+    private void AccumulateListeningToNow()
+    {
+        if (_listeningSince is null) return;
+
+        _listeningToday += _clock.UtcNow - _listeningSince.Value;
+        _listeningSince = _clock.UtcNow;
+    }
+
     private void Update(SessionState next)
     {
-        State = next;
-        StateChanged?.Invoke(next);
+        // The Nights ledger fields flow from Session-owned state into every update,
+        // so no call site can forget them.
+        State = next with { NightsTotal = _nightsTotal, ListeningToday = _listeningToday };
+        StateChanged?.Invoke(State);
     }
 }

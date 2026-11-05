@@ -14,6 +14,13 @@ public sealed record SessionState
 
     /// <summary>Master volume (0 = silence, 1 = full scale); full at launch.</summary>
     public double Volume { get; init; } = 1.0;
+
+    /// <summary>Lifetime total of Nights (glossary: Night), persisted on-device only.</summary>
+    public int NightsTotal { get; init; }
+
+    /// <summary>Playing minutes accumulated toward a Night on the current calendar day;
+    /// reaching 10 awards the Night. Excludes time paused; never carries to the next day.</summary>
+    public TimeSpan ListeningToday { get; init; }
 }
 
 public enum PlaybackStatus

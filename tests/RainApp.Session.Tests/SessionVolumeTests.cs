@@ -15,7 +15,7 @@ public class SessionVolumeTests
 
     public SessionVolumeTests()
     {
-        _session = new Session(TestScenes.Catalog(), _clock, _audio);
+        _session = new Session(TestScenes.Catalog(), _clock, _audio, new FakePersistence());
     }
 
     [Fact]

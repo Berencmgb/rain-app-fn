@@ -10,7 +10,7 @@ public class SessionPlaybackTests
 
     public SessionPlaybackTests()
     {
-        _session = new Session(TestScenes.Catalog(), _clock, _audio);
+        _session = new Session(TestScenes.Catalog(), _clock, _audio, new FakePersistence());
     }
 
     [Fact]
