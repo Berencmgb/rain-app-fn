@@ -11,3 +11,4 @@ We decided the app's behavior — playback control, Scene ring navigation, Sleep
 
 - Any temptation to put logic in ViewModels or the platform adapter must be resisted; if a VM accumulates `if`s, that logic belongs in Session.
 - All time-dependent behavior must flow through the injected clock so fades, countdown expiry, and the 10-minute Night threshold are testable without waiting.
+- "One test seam" scopes *session* behavior. The one other pure, platform-agnostic module this decision sanctions is the keyframe/animation module (ADR-0002): it evaluates the Scene-icon timelines against the mockup's timings, is tested in the same fake-clock style, and holds no session behavior. The two modules stay disjoint — Session remains the only home for product logic.
