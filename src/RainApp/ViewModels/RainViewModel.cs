@@ -6,11 +6,18 @@ namespace RainApp;
 /// <summary>
 /// Thin MVVM view-model (ADR-0003): translates taps into Session intents and
 /// renders Session state. No logic here — if this class accumulates `if`s,
-/// they belong in Session. Also drives Session's tick intent while playing,
-/// the hook the Sleep Timer countdown (ticket #3) will reuse.
+/// they belong in Session. Also drives Session's tick intent while audio is
+/// live (playing or fading out); the tick interval drops to 100ms so fades
+/// and the Sleep Timer countdown render smoothly.
 /// </summary>
 public sealed class RainViewModel : INotifyPropertyChanged
 {
+    private static readonly (string Label, int? Minutes)[] SleepTimerPresets =
+    [
+        ("15 minutes", 15), ("30 minutes", 30), ("45 minutes", 45), ("60 minutes", 60),
+        ("Off", null),
+    ];
+
     private readonly Session _session;
     private readonly IDispatcherTimer? _ticker;
 
@@ -20,9 +27,10 @@ public sealed class RainViewModel : INotifyPropertyChanged
         Scenes = [.. catalog.Scenes.Select(s => new SceneTileViewModel(s, this))];
 
         TogglePlayCommand = new Command(TogglePlay);
+        OpenSleepTimerCommand = new Command(async () => await OpenSleepTimerAsync());
 
         _ticker = Dispatcher.GetForCurrentThread().CreateTimer();
-        _ticker.Interval = TimeSpan.FromMilliseconds(500);
+        _ticker.Interval = TimeSpan.FromMilliseconds(100);
         _ticker.Tick += (_, _) => _session.Tick();
 
         _session.StateChanged += OnStateChanged;
@@ -31,14 +39,25 @@ public sealed class RainViewModel : INotifyPropertyChanged
     public IReadOnlyList<SceneTileViewModel> Scenes { get; }
 
     public ICommand TogglePlayCommand { get; }
+    public ICommand OpenSleepTimerCommand { get; }
 
     public bool HasSelection => _session.State.CurrentSceneId is not null;
     public string? CurrentSceneId => _session.State.CurrentSceneId;
     public bool IsPlaying => _session.State.Status == PlaybackStatus.Playing;
-    public string StatusText => IsPlaying ? "Playing now" : "Paused";
+    public string StatusText => _session.State.Status switch
+    {
+        PlaybackStatus.Playing => "Playing now",
+        PlaybackStatus.FadingOut => "Fading out…",
+        _ => "Paused",
+    };
     public string PlayerTitle => Tile(CurrentSceneId)?.Title ?? string.Empty;
     public SceneIcon PlayerIcon => Tile(CurrentSceneId)?.Icon ?? SceneIcon.RainOnWindow;
     public string ElapsedText => FormatElapsed(_session.State.ElapsedListening);
+
+    /// <summary>The Sleep Timer countdown: shown only while one is armed.</summary>
+    public bool IsSleepTimerArmed => _session.State.SleepTimerRemaining is not null;
+    public string SleepTimerText => _session.State.SleepTimerRemaining is { } remaining
+        ? FormatRemaining(remaining) : string.Empty;
 
     private SceneTileViewModel? Tile(string? id) => Scenes.FirstOrDefault(t => t.Id == id);
 
@@ -63,15 +82,31 @@ public sealed class RainViewModel : INotifyPropertyChanged
         if (IsPlaying) _session.Pause(); else _session.Play();
     }
 
+    /// <summary>Timer chip / control: offers the fixed Sleep Timer durations (spec:
+    /// no custom durations in v1). The chosen value becomes the Sleep Timer.</summary>
+    private async Task OpenSleepTimerAsync()
+    {
+        if (Application.Current?.Windows.FirstOrDefault()?.Page is not Page page) return;
+
+        var choice = await page.DisplayActionSheetAsync(
+            "Sleep Timer", "Cancel", null,
+            [.. SleepTimerPresets.Select(p => p.Label)]);
+
+        var index = Array.FindIndex(SleepTimerPresets, p => p.Label == choice);
+        if (index >= 0) _session.SetSleepTimer(SleepTimerPresets[index].Minutes);
+    }
+
     private void OnStateChanged(SessionState state)
     {
         if (_ticker is not null)
         {
-            if (state.Status == PlaybackStatus.Playing && !_ticker.IsRunning)
+            // Ticks drive fades and the countdown: run while audio is live,
+            // including through the fade-out that ends a session.
+            if (state.Status is PlaybackStatus.Playing or PlaybackStatus.FadingOut && !_ticker.IsRunning)
             {
                 _ticker.Start();
             }
-            else if (state.Status != PlaybackStatus.Playing && _ticker.IsRunning)
+            else if (state.Status is not (PlaybackStatus.Playing or PlaybackStatus.FadingOut) && _ticker.IsRunning)
             {
                 _ticker.Stop();
             }
@@ -82,6 +117,7 @@ public sealed class RainViewModel : INotifyPropertyChanged
                  {
                      nameof(HasSelection), nameof(IsPlaying), nameof(StatusText),
                      nameof(PlayerTitle), nameof(PlayerIcon), nameof(ElapsedText),
+                     nameof(IsSleepTimerArmed), nameof(SleepTimerText),
                  })
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
@@ -92,6 +128,13 @@ public sealed class RainViewModel : INotifyPropertyChanged
         t.TotalHours >= 1
             ? $"{(int)t.TotalHours}:{t.Minutes:D2}:{t.Seconds:D2}"
             : $"{t.Minutes}:{t.Seconds:D2}";
+
+    /// <summary>Sleep Timer countdown, rounded up so it only shows 0:00 at the very end.</summary>
+    internal static string FormatRemaining(TimeSpan t)
+    {
+        var seconds = (int)Math.Ceiling(t.TotalSeconds);
+        return $"{seconds / 60}:{seconds % 60:D2}";
+    }
 }
 
 /// <summary>
