@@ -88,19 +88,11 @@
                                                FontSize="16" FontAttributes="Bold" />
                                         <Label Text="{Binding Tagline}" TextColor="{StaticResource TextSecondary}"
                                                FontSize="13" LineBreakMode="TailTruncation" />
-                                        <!-- Equalizer bars on the active tile. Static frame now;
-                             the mockup's 1s bounce animation lands with ticket #8. -->
-                                        <HorizontalStackLayout Spacing="3" Padding="0,8,0,0"
-                                                               IsVisible="{Binding IsCurrent}">
-                                            <BoxView WidthRequest="3" HeightRequest="11" CornerRadius="2"
-                                                     Color="{StaticResource Accent}" VerticalOptions="End" />
-                                            <BoxView WidthRequest="3" HeightRequest="6" CornerRadius="2"
-                                                     Color="{StaticResource Accent}" VerticalOptions="End" />
-                                            <BoxView WidthRequest="3" HeightRequest="14" CornerRadius="2"
-                                                     Color="{StaticResource Accent}" VerticalOptions="End" />
-                                            <BoxView WidthRequest="3" HeightRequest="8" CornerRadius="2"
-                                                     Color="{StaticResource Accent}" VerticalOptions="End" />
-                                        </HorizontalStackLayout>
+                                        <!-- Equalizer bars on the active tile (mockup .card.playing .eq):
+                                             they bounce while audio is live and freeze on their current
+                                             frame while paused, like the mockup's paused .eq span. -->
+                                        <controls:EqualizerView Margin="0,8,0,0"
+                                                                IsVisible="{Binding IsCurrent}" />
                                     </VerticalStackLayout>
 
                                     <VerticalStackLayout Grid.Column="2" Spacing="6"
