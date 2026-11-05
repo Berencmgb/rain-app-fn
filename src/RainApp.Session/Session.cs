@@ -145,6 +145,7 @@ public sealed class Session
 
         _segmentStartedAt = _clock.UtcNow;
         if (_timerRemaining is not null) _timerRunningSince = _clock.UtcNow;
+        _listeningSince ??= _clock.UtcNow;
         Update(State with { Status = PlaybackStatus.Playing });
         StartFade(0, 1, FadeIn); // every resume fades in
         _audio.Resume();
@@ -157,6 +158,8 @@ public sealed class Session
 
         FreezeClock();
         AdvanceSleepTimerToNow();
+        AccumulateListeningToNow();
+        _listeningSince = null; // paused time is not listening time
         _fadeStartedAt = null; // the level freezes with the paused audio
         Update(State with
         {
@@ -232,6 +235,8 @@ public sealed class Session
     private void BeginFadeOut()
     {
         FreezeClock();
+        AccumulateListeningToNow();
+        _listeningSince = null; // the fade to silence is not listening time either
         _timerRemaining = null;
         _timerRunningSince = null;
         StartFade(_envelope, 0, FadeOut);
@@ -261,6 +266,7 @@ public sealed class Session
         if (State.Status != PlaybackStatus.FadingOut) return;
 
         _segmentStartedAt = _clock.UtcNow;
+        _listeningSince ??= _clock.UtcNow;
         Update(State with { Status = PlaybackStatus.Playing });
         StartFade(0, 1, FadeIn);
     }
@@ -314,14 +320,23 @@ public sealed class Session
         _segmentStartedAt = null;
     }
 
+    /// <summary>A Night is a calendar day reaching this much cumulative playing time
+    /// (glossary: Night). The day's first crossing awards it — once.</summary>
+    private static readonly TimeSpan NightThreshold = TimeSpan.FromMinutes(10);
+
     /// <summary>Counts elapsed playing time into today's ledger; only ever called while
-    /// Playing. The watermark advances with each call so every second counts exactly once.</summary>
+    /// Playing. The watermark advances with each call so every second counts exactly once.
+    /// Crossing the Night threshold awards exactly one Night — later minutes that day
+    /// only add to today's total, since a crossing needs a below-threshold before.</summary>
     private void AccumulateListeningToNow()
     {
         if (_listeningSince is null) return;
 
+        var before = _listeningToday;
         _listeningToday += _clock.UtcNow - _listeningSince.Value;
         _listeningSince = _clock.UtcNow;
+
+        if (before < NightThreshold && _listeningToday >= NightThreshold) _nightsTotal++;
     }
 
     private void Update(SessionState next)
