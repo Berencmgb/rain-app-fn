@@ -192,6 +192,71 @@ public class SessionNightsTests
         Assert.Equal(4, today.State.NightsTotal);
     }
 
+    [Fact]
+    public void FirstLaunchStoresNothingAndChangesNothing()
+    {
+        var fresh = Reopen(out var audio);
+
+        Assert.Null(fresh.State.CurrentSceneId);
+        Assert.Equal(PlaybackStatus.Idle, fresh.State.Status);
+        Assert.Equal(1.0, fresh.State.Volume);
+        Assert.Null(fresh.State.SleepTimerRemaining);
+        Assert.Equal(0, fresh.State.NightsTotal);
+        Assert.Empty(audio.Log); // a quiet launch: no audio, no levels
+    }
+
+    [Fact]
+    public void TheLastSceneComesBackSelectedButNeverPlaying()
+    {
+        _session.Select(TestScenes.RainOnWindow); // tapped, listened, killed the app
+
+        var reopened = Reopen(out var audio);
+        Assert.Equal(TestScenes.RainOnWindow, reopened.State.CurrentSceneId);
+        Assert.Equal(PlaybackStatus.Paused, reopened.State.Status); // selected, not playing
+        Assert.Null(reopened.State.SleepTimerRemaining);
+        Assert.Equal(["load rain-on-window.m4a (Rain on Window)"], audio.Log); // loaded, never played
+    }
+
+    [Fact]
+    public void TheSleepTimerIsAlwaysOffAtLaunchAndVolumeIsRestoredThroughTheOutput()
+    {
+        _session.Select(TestScenes.RainOnWindow);
+        _session.SetVolume(0.4);
+        _session.SetSleepTimer(30);
+
+        var reopened = Reopen(out var audio);
+        Assert.Equal(0.4, reopened.State.Volume, 3); // the setting is remembered…
+        Assert.Null(reopened.State.SleepTimerRemaining); // …the mood is not
+
+        reopened.Play(); // resuming reaches the restored level like any fade-in
+        _clock.Advance(TimeSpan.FromSeconds(2));
+        reopened.Tick();
+        Assert.Equal(0.4, audio.Levels[^1], 3);
+    }
+
+    [Fact]
+    public void APausedSceneSwitchBecomesTheRestoredSceneToo()
+    {
+        _session.Select(TestScenes.RainOnWindow);
+        _session.Pause();
+        _session.Next(); // paused walk: Ocean Waves is now the selected Scene
+
+        var reopened = Reopen(out var audio);
+        Assert.Equal(TestScenes.OceanWaves, reopened.State.CurrentSceneId);
+        Assert.Contains("load ocean-waves.m4a (Ocean Waves)", audio.Log);
+    }
+
+    [Fact]
+    public void AnUnknownStoredSceneLaunchesQuietly()
+    {
+        _persistence.Save(new PersistedState { LastSceneId = "a-retired-scene" });
+
+        var today = new Session(TestScenes.Catalog(), _clock, _audio, _persistence);
+        Assert.Null(today.State.CurrentSceneId);
+        Assert.Equal(PlaybackStatus.Idle, today.State.Status);
+        Assert.Empty(_audio.Log);
+    }
+
     private Session Reopen(out FakeAudioOutput audio)
     {
         audio = new FakeAudioOutput();
