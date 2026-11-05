@@ -29,4 +29,68 @@ public class SessionNightsTests
 
         Assert.Equal(TimeSpan.FromMinutes(4), _session.State.ListeningToday);
     }
+
+    [Fact]
+    public void PausedTimeDoesNotAccrueAndResumingContinuesTheSameLedger()
+    {
+        _session.Select(TestScenes.RainOnWindow);
+        _clock.Advance(TimeSpan.FromMinutes(4));
+        _session.Tick();
+
+        _session.Pause();
+        _clock.Advance(TimeSpan.FromMinutes(10));
+        _session.Tick(); // paused: the ledger simply waits
+
+        Assert.Equal(TimeSpan.FromMinutes(4), _session.State.ListeningToday);
+
+        _session.Play();
+        _clock.Advance(TimeSpan.FromMinutes(2));
+        _session.Tick();
+
+        Assert.Equal(TimeSpan.FromMinutes(6), _session.State.ListeningToday);
+    }
+
+    [Fact]
+    public void FadingOutTimeDoesNotAccrue()
+    {
+        _session.Select(TestScenes.RainOnWindow);
+        _session.SetSleepTimer(4);
+        _clock.Advance(TimeSpan.FromMinutes(4));
+        _session.Tick(); // Sleep Timer expired: the session ends with a fade-out
+
+        _clock.Advance(TimeSpan.FromSeconds(10));
+        _session.Tick(); // fade reaches silence, the session is over
+
+        Assert.Equal(PlaybackStatus.Idle, _session.State.Status);
+        Assert.Equal(TimeSpan.FromMinutes(4), _session.State.ListeningToday);
+    }
+
+    [Fact]
+    public void CrossingTenCumulativeMinutesOfPlayingAwardsOneNight()
+    {
+        _session.Select(TestScenes.RainOnWindow);
+        _clock.Advance(TimeSpan.FromMinutes(9));
+        _session.Tick();
+        Assert.Equal(0, _session.State.NightsTotal); // not yet a Night
+
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        _session.Tick();
+
+        Assert.Equal(1, _session.State.NightsTotal);
+    }
+
+    [Fact]
+    public void MorePlayingAfterTheThresholdEarlsNoExtraNightsThatDay()
+    {
+        _session.Select(TestScenes.RainOnWindow);
+        _clock.Advance(TimeSpan.FromMinutes(10));
+        _session.Tick();
+        Assert.Equal(1, _session.State.NightsTotal);
+
+        _clock.Advance(TimeSpan.FromMinutes(25));
+        _session.Tick();
+
+        Assert.Equal(1, _session.State.NightsTotal);
+        Assert.Equal(TimeSpan.FromMinutes(35), _session.State.ListeningToday);
+    }
 }
