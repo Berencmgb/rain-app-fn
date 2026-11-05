@@ -115,7 +115,8 @@ public class SessionRingNavigationTests
         _session.Play();
 
         Assert.Equal(PlaybackStatus.Playing, _session.State.Status);
-        Assert.Contains($"load {TestScenes.OceanWaves}.m4a", _audio.Log); // resumed from what the switch loaded
+        // The resumed output is the Scene the paused switch loaded, then resumed.
+        Assert.Contains($"load {TestScenes.OceanWaves}.m4a", _audio.Log[^2]);
         Assert.Equal("resume", _audio.Log[^1]);
     }
 
