@@ -37,6 +37,11 @@ public sealed class MediaElementAudioOutput : IAudioOutput
 
     public void Resume() => RequirePlayer().Play();
 
+    /// <summary>Session ramps this from its ticks; the volume property is the ramp target.</summary>
+    public void SetOutputLevel(double level) => RequirePlayer().Volume = Math.Clamp(level, 0, 1);
+
+    public void Stop() => RequirePlayer().Stop();
+
     // ShouldLoopPlayback should never let MediaEnded fire; if it ever does,
     // restart immediately (only safe fallback — never the normal path).
     private void OnEnded(object? sender, EventArgs e) => _player?.Play();

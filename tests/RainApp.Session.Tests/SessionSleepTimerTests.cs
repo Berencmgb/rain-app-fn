@@ -178,4 +178,43 @@ public class SessionSleepTimerTests
         _session.Tick();
         Assert.Equal(1.0, _audio.Levels[^1], 3);
     }
+
+    [Fact]
+    public void ResumingDuringTheFadeOutCancelsTheStop()
+    {
+        _session.Select(TestScenes.RainOnWindow);
+        _session.SetSleepTimer(15);
+        _clock.Advance(TimeSpan.FromSeconds(3));
+        _session.Tick();
+        _clock.Advance(TimeSpan.FromMinutes(15));
+        _session.Tick();
+        Assert.Equal(PlaybackStatus.FadingOut, _session.State.Status);
+
+        _session.Play();
+
+        Assert.Equal(PlaybackStatus.Playing, _session.State.Status);
+        Assert.DoesNotContain("stop", _audio.Log);
+        Assert.DoesNotContain("pause", _audio.Log); // audio never actually stopped mid-fade
+
+        // And it fades back up to full like any resume.
+        _clock.Advance(TimeSpan.FromSeconds(2));
+        _session.Tick();
+        Assert.Equal(1.0, _audio.Levels[^1], 3);
+    }
+
+    [Fact]
+    public void ArmingANewSleepTimerDuringTheFadeOutCancelsTheStop()
+    {
+        _session.Select(TestScenes.RainOnWindow);
+        _session.SetSleepTimer(15);
+        _clock.Advance(TimeSpan.FromMinutes(15));
+        _session.Tick();
+        Assert.Equal(PlaybackStatus.FadingOut, _session.State.Status);
+
+        _session.SetSleepTimer(30);
+
+        Assert.Equal(PlaybackStatus.Playing, _session.State.Status);
+        Assert.Equal(TimeSpan.FromMinutes(30), _session.State.SleepTimerRemaining);
+        Assert.DoesNotContain("stop", _audio.Log);
+    }
 }

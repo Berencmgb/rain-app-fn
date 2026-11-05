@@ -65,6 +65,12 @@ public sealed class Session
     /// <summary>Intent: resume the paused Scene.</summary>
     public void Play()
     {
+        if (State.Status == PlaybackStatus.FadingOut)
+        {
+            // Changed my mind: the stop is cancelled and playback simply continues.
+            CancelFadeOut();
+            return;
+        }
         if (State.Status != PlaybackStatus.Paused) return;
 
         _segmentStartedAt = _clock.UtcNow;
@@ -95,6 +101,8 @@ public sealed class Session
     /// minutes, or sets it Off (null). An Off Sleep Timer never stops playback.</summary>
     public void SetSleepTimer(int? minutes)
     {
+        if (minutes is not null) CancelFadeOut(); // arming again means "don't stop"
+
         if (minutes is null)
         {
             _timerRemaining = null;
@@ -170,6 +178,18 @@ public sealed class Session
         _outputLevel = 1.0; // the next start fades in from silence again
         _audio.Stop();
         Update(new SessionState());
+    }
+
+    /// <summary>The user changed their mind before the fade reached silence: the audio
+    /// never stopped, so cancelling is just ramping the envelope back up (faded in,
+    /// like any resume) and continuing to run.</summary>
+    private void CancelFadeOut()
+    {
+        if (State.Status != PlaybackStatus.FadingOut) return;
+
+        _segmentStartedAt = _clock.UtcNow;
+        Update(State with { Status = PlaybackStatus.Playing });
+        StartFade(0, 1, FadeIn);
     }
 
     /// <summary>Starts ramping the output level; the ramp advances with each tick.</summary>
