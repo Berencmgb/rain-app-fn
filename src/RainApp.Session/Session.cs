@@ -3,9 +3,9 @@ namespace RainApp;
 /// <summary>
 /// The single test seam (ADR-0003): plain C#, no MAUI types. Driven by intents,
 /// observed via StateChanged. All time flows through the injected clock.
-/// Sleep Timer + fades (#3), Scene-ring navigation (#4) and master volume (#5)
-/// are in. Later tickets attach here: Night accrual (#6), Interruption
-/// policy (#7).
+/// Sleep Timer + fades (#3), Scene-ring navigation (#4), master volume (#5) and
+/// Night accrual with the on-device ledger (#6) are in. Later tickets attach
+/// here: Interruption policy (#7).
 /// </summary>
 public sealed class Session
 {
@@ -16,6 +16,14 @@ public sealed class Session
     private readonly SceneCatalog _catalog;
     private readonly IClock _clock;
     private readonly IAudioOutput _audio;
+    private readonly IPersistence _persistence;
+
+    // Nights ledger (glossary: Night): playing time accrues to today through the
+    // same clock the fades run on; the lifetime total and today's minutes persist.
+    private int _nightsTotal;
+    private DateOnly _listeningDay;
+    private TimeSpan _listeningToday = TimeSpan.Zero;
+    private DateTimeOffset? _listeningSince;
 
     // Elapsed-listening stopwatch: time accrues only while playing.
     private TimeSpan _elapsedAccrued;
@@ -37,11 +45,36 @@ public sealed class Session
     private TimeSpan _fadeDuration;
     private DateTimeOffset? _fadeStartedAt;
 
-    public Session(SceneCatalog catalog, IClock clock, IAudioOutput audio)
+    public Session(SceneCatalog catalog, IClock clock, IAudioOutput audio, IPersistence persistence)
     {
         _catalog = catalog;
         _clock = clock;
         _audio = audio;
+        _persistence = persistence;
+
+        // Restore the Nights ledger (glossary: Night) from the device. Minutes only
+        // carry when they belong to the day the clock reads; a stale day is retired.
+        var stored = persistence.Load();
+        _nightsTotal = stored.NightsTotal;
+        _listeningDay = Today;
+        _listeningToday = stored.ListeningDay == _listeningDay && stored.MinutesToday > TimeSpan.Zero
+            ? stored.MinutesToday
+            : TimeSpan.Zero;
+        _masterVolume = Math.Clamp(stored.Volume, 0.0, 1.0);
+
+        // Launch behaviour (spec): the last Scene comes back selected — using the
+        // paused-switch Load semantics of #4, never auto-playing — and the Sleep
+        // Timer is Off, which is every launch's state anyway.
+        var lastScene = stored.LastSceneId is { } id ? _catalog.Find(id) : null;
+        State = new SessionState
+        {
+            NightsTotal = _nightsTotal,
+            ListeningToday = _listeningToday,
+            Volume = _masterVolume,
+            CurrentSceneId = lastScene?.Id,
+            Status = lastScene is null ? PlaybackStatus.Idle : PlaybackStatus.Paused,
+        };
+        if (lastScene is not null) _audio.Load(lastScene.AudioAsset, lastScene.Title);
     }
 
     public SessionState State { get; private set; } = new();
@@ -59,6 +92,7 @@ public sealed class Session
         _masterVolume = level;
         Update(State with { Volume = level });
         ApplyOutputLevel();
+        Persist(); // the master volume is kept on-device like the Nights ledger
     }
 
     /// <summary>Intent: the user tapped a Scene — select it and start it playing.</summary>
@@ -69,6 +103,7 @@ public sealed class Session
 
         _elapsedAccrued = TimeSpan.Zero;
         _segmentStartedAt = _clock.UtcNow;
+        _listeningSince ??= _clock.UtcNow; // switching Scenes is continuous listening
 
         Update(State with
         {
@@ -78,6 +113,7 @@ public sealed class Session
         });
         StartFade(0, 1, FadeIn); // manual start never snaps on
         _audio.Play(scene.AudioAsset, scene.Title);
+        Persist(); // the last-used Scene is the one picked last
     }
 
     /// <summary>Intent: walk the Scene list as a ring — select the next Scene
@@ -115,6 +151,7 @@ public sealed class Session
                 ElapsedListening = TimeSpan.Zero,
             });
             _audio.Load(next.AudioAsset, next.Title);
+            Persist(); // walking the ring paused also moves the last-used Scene
             return;
         }
 
@@ -136,6 +173,7 @@ public sealed class Session
 
         _segmentStartedAt = _clock.UtcNow;
         if (_timerRemaining is not null) _timerRunningSince = _clock.UtcNow;
+        _listeningSince ??= _clock.UtcNow;
         Update(State with { Status = PlaybackStatus.Playing });
         StartFade(0, 1, FadeIn); // every resume fades in
         _audio.Resume();
@@ -148,7 +186,10 @@ public sealed class Session
 
         FreezeClock();
         AdvanceSleepTimerToNow();
+        AccumulateListeningToNow();
+        _listeningSince = null; // paused time is not listening time
         _fadeStartedAt = null; // the level freezes with the paused audio
+        Persist(); // a quiet Scene's ledger is on the device
         Update(State with
         {
             Status = PlaybackStatus.Paused,
@@ -194,6 +235,7 @@ public sealed class Session
                     BeginFadeOut();
                     return;
                 }
+                AccumulateListeningToNow();
                 Update(State with { ElapsedListening = ElapsedNow(), SleepTimerRemaining = _timerRemaining });
                 break;
 
@@ -222,6 +264,8 @@ public sealed class Session
     private void BeginFadeOut()
     {
         FreezeClock();
+        AccumulateListeningToNow();
+        _listeningSince = null; // the fade to silence is not listening time either
         _timerRemaining = null;
         _timerRunningSince = null;
         StartFade(_envelope, 0, FadeOut);
@@ -251,6 +295,7 @@ public sealed class Session
         if (State.Status != PlaybackStatus.FadingOut) return;
 
         _segmentStartedAt = _clock.UtcNow;
+        _listeningSince ??= _clock.UtcNow;
         Update(State with { Status = PlaybackStatus.Playing });
         StartFade(0, 1, FadeIn);
     }
@@ -304,9 +349,62 @@ public sealed class Session
         _segmentStartedAt = null;
     }
 
+    /// <summary>A Night is a calendar day reaching this much cumulative playing time
+    /// (glossary: Night). The day's first crossing awards it — once.</summary>
+    private static readonly TimeSpan NightThreshold = TimeSpan.FromMinutes(10);
+
+    /// <summary>The calendar day (UTC) the clock currently reads.</summary>
+    private DateOnly Today => DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime);
+
+    /// <summary>Counts elapsed playing time into today's ledger; only ever called while
+    /// Playing. The watermark advances with each call so every second counts exactly once.
+    /// Crossing the Night threshold awards exactly one Night — later minutes that day
+    /// only add to today's total, since a crossing needs a below-threshold before.
+    /// A calendar-day crossing retires yesterday's minutes: only time after the day
+    /// boundary counts toward the new day's Night.</summary>
+    private void AccumulateListeningToNow()
+    {
+        if (_listeningSince is null) return;
+
+        var now = _clock.UtcNow;
+        if (Today != _listeningDay)
+        {
+            _listeningDay = Today;
+            _listeningToday = TimeSpan.Zero;
+            var midnight = new DateTimeOffset(_listeningDay.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+            if (_listeningSince.Value < midnight) _listeningSince = midnight;
+        }
+
+        var before = _listeningToday;
+        if (now > _listeningSince) _listeningToday += now - _listeningSince.Value;
+        _listeningSince = now;
+
+        if (before >= NightThreshold || _listeningToday < NightThreshold) return;
+
+        // The day's first crossing: one Night, and the ledger is on the device at once.
+        _nightsTotal++;
+        Persist();
+    }
+
+    /// <summary>Writes the current record through the persistence port — device-only
+    /// storage (spec: Nights never leave the device).</summary>
+    private void Persist()
+    {
+        _persistence.Save(new PersistedState
+        {
+            NightsTotal = _nightsTotal,
+            ListeningDay = _listeningDay,
+            MinutesToday = _listeningToday,
+            Volume = _masterVolume,
+            LastSceneId = State.CurrentSceneId,
+        });
+    }
+
     private void Update(SessionState next)
     {
-        State = next;
-        StateChanged?.Invoke(next);
+        // The Nights ledger fields flow from Session-owned state into every update,
+        // so no call site can forget them.
+        State = next with { NightsTotal = _nightsTotal, ListeningToday = _listeningToday };
+        StateChanged?.Invoke(State);
     }
 }

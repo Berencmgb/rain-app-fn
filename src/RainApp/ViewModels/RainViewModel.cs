@@ -63,6 +63,9 @@ public sealed class RainViewModel : INotifyPropertyChanged
     public SceneIcon PlayerIcon => Tile(CurrentSceneId)?.Icon ?? SceneIcon.RainOnWindow;
     public string ElapsedText => FormatElapsed(_session.State.ElapsedListening);
 
+    /// <summary>The Nights badge (glossary: Night): lifetime total, kept on-device only.</summary>
+    public string NightsText => _session.State.NightsTotal.ToString();
+
     /// <summary>The Sleep Timer countdown: shown only while one is armed.</summary>
     public bool IsSleepTimerArmed => _session.State.SleepTimerRemaining is not null;
     public string SleepTimerText => _session.State.SleepTimerRemaining is { } remaining
@@ -155,6 +158,7 @@ public sealed class RainViewModel : INotifyPropertyChanged
                      nameof(PlayerTitle), nameof(PlayerIcon), nameof(ElapsedText),
                      nameof(IsSleepTimerArmed), nameof(SleepTimerText),
                      nameof(MasterVolume), nameof(VolumePercentText),
+                     nameof(NightsText),
                  })
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

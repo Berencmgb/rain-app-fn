@@ -14,7 +14,7 @@ public class SessionSleepTimerTests
 
     public SessionSleepTimerTests()
     {
-        _session = new Session(TestScenes.Catalog(), _clock, _audio);
+        _session = new Session(TestScenes.Catalog(), _clock, _audio, new FakePersistence());
     }
 
     [Fact]

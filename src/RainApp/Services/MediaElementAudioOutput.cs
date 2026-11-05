@@ -12,12 +12,20 @@ public sealed class MediaElementAudioOutput : IAudioOutput
 {
     private MediaElement? _player;
     private string? _loadedAsset;
+    private (string Asset, string Title)? _pendingLoad;
 
     public void Attach(MediaElement player)
     {
         player.ShouldLoopPlayback = true;
         player.MediaEnded += OnEnded;
         _player = player;
+        if (_pendingLoad is { } pending)
+        {
+            // A Scene restored at launch loads with the player: still not playing.
+            _pendingLoad = null;
+            LoadAsset(player, pending.Asset, pending.Title);
+            player.Pause();
+        }
     }
 
     public void Play(string audioAsset, string title)
@@ -28,10 +36,16 @@ public sealed class MediaElementAudioOutput : IAudioOutput
     }
 
     /// <summary>Setting a new Source can start playing on some platforms, so the
-    /// pause is explicit: Load must never start audio.</summary>
+    /// pause is explicit: Load must never start audio. Before the page hosts a
+    /// player (launch restore), Load is remembered and applied on Attach.</summary>
     public void Load(string audioAsset, string title)
     {
-        var player = RequirePlayer();
+        if (_player is null)
+        {
+            _pendingLoad = (audioAsset, title);
+            return;
+        }
+        var player = _player;
         if (_loadedAsset == audioAsset) return;
         LoadAsset(player, audioAsset, title);
         player.Pause();
