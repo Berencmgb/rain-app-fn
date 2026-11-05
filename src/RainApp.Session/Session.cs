@@ -3,9 +3,9 @@ namespace RainApp;
 /// <summary>
 /// The single test seam (ADR-0003): plain C#, no MAUI types. Driven by intents,
 /// observed via StateChanged. All time flows through the injected clock.
-/// Sleep Timer + fades (#3), Scene-ring navigation (#4), master volume (#5) and
-/// Night accrual with the on-device ledger (#6) are in. Later tickets attach
-/// here: Interruption policy (#7).
+/// Sleep Timer + fades (#3), Scene-ring navigation (#4), master volume (#5),
+/// Night accrual with the on-device ledger (#6) and the Interruption policy (#7)
+/// are in.
 /// </summary>
 public sealed class Session
 {
@@ -44,6 +44,12 @@ public sealed class Session
     private double _fadeTo;
     private TimeSpan _fadeDuration;
     private DateTimeOffset? _fadeStartedAt;
+
+    // Interruption policy (glossary: Interruption): only a pause armed here — one
+    // caused by a temporary Interruption while playing — may be undone by
+    // InterruptionEnds. A user pause never arms it, and a device disconnect
+    // disarms it: that pause waits for the user alone.
+    private bool _pausedByInterruption;
 
     public Session(SceneCatalog catalog, IClock clock, IAudioOutput audio, IPersistence persistence)
     {
@@ -101,6 +107,7 @@ public sealed class Session
         var scene = _catalog.Find(sceneId)
             ?? throw new ArgumentException($"Unknown Scene '{sceneId}'.", nameof(sceneId));
 
+        _pausedByInterruption = false; // the user has taken the controls (see Play)
         _elapsedAccrued = TimeSpan.Zero;
         _segmentStartedAt = _clock.UtcNow;
         _listeningSince ??= _clock.UtcNow; // switching Scenes is continuous listening
@@ -163,6 +170,10 @@ public sealed class Session
     /// <summary>Intent: resume the paused Scene.</summary>
     public void Play()
     {
+        // An explicit user resume ends the reach of any Interruption: the pause is
+        // the user's from here, and no later InterruptionEnds may act on it.
+        _pausedByInterruption = false;
+
         if (State.Status == PlaybackStatus.FadingOut)
         {
             // Changed my mind: the stop is cancelled and playback simply continues.
@@ -183,7 +194,45 @@ public sealed class Session
     public void Pause()
     {
         if (State.Status != PlaybackStatus.Playing) return;
+        PauseWhilePlaying();
+    }
 
+    /// <summary>Intent: an outside event has taken audio away (glossary: Interruption) —
+    /// the playing Scene pauses like any pause; whether it comes back on its own is the
+    /// InterruptionEnds / DeviceDisconnected policy, not this call.</summary>
+    public void InterruptionBegins()
+    {
+        if (State.Status != PlaybackStatus.Playing) return;
+        _pausedByInterruption = true; // this pause is the Session's to undo
+        PauseWhilePlaying();
+    }
+
+    /// <summary>Intent: the system hands audio back (glossary: Interruption) — the Scene
+    /// resumes with a fade-in, but only when the pause it is undoing was itself caused
+    /// by an Interruption. A user pause waits for the user.</summary>
+    public void InterruptionEnds()
+    {
+        if (!_pausedByInterruption) return;
+        _pausedByInterruption = false; // the Interruption is over either way
+        if (State.Status != PlaybackStatus.Paused) return;
+        Play(); // every resume fades in
+    }
+
+    /// <summary>Intent: the audio output device went away (headphones/Bluetooth — glossary:
+    /// Interruption): the Scene pauses and stays paused until the user resumes it. Nothing
+    /// this pause arms can bring it back: a device disconnect never auto-resumes, so it
+    /// simply never qualifies for InterruptionEnds, and any auto-resume a temporary
+    /// Interruption had armed is cancelled — losing the device outranks the system
+    /// handing audio back. Only the user's own Play/Select ends the pause.</summary>
+    public void DeviceDisconnected()
+    {
+        _pausedByInterruption = false;
+        if (State.Status != PlaybackStatus.Playing) return;
+        PauseWhilePlaying();
+    }
+
+    private void PauseWhilePlaying()
+    {
         FreezeClock();
         AdvanceSleepTimerToNow();
         AccumulateListeningToNow();
