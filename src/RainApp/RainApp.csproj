@@ -62,6 +62,7 @@
 
 	<ItemGroup>
 	  <ProjectReference Include="..\RainApp.Session\RainApp.Session.csproj" />
+	  <ProjectReference Include="..\RainApp.Animation\RainApp.Animation.csproj" />
 	</ItemGroup>
 
 </Project>

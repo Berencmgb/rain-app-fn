@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows.Input;
+using RainApp.Controls;
 
 namespace RainApp;
 
@@ -137,6 +138,10 @@ public sealed class RainViewModel : INotifyPropertyChanged
 
     private void OnStateChanged(SessionState state)
     {
+        // The mockup's animation-play-state: icon and equalizer clocks run
+        // while audio is live (through the fade-out too) and freeze otherwise.
+        IconAnimation.SetAnimating(state.Status is PlaybackStatus.Playing or PlaybackStatus.FadingOut);
+
         if (_ticker is not null)
         {
             // Ticks drive fades and the countdown: run while audio is live,
