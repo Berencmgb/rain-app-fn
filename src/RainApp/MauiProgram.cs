@@ -23,6 +23,7 @@ public static class MauiProgram
 
 		// Domain (pure Session module behind ports; ADR-0003).
 		builder.Services.AddSingleton<IClock, SystemClock>();
+		builder.Services.AddSingleton<IPersistence, PreferencesPersistence>();
 		builder.Services.AddSingleton(_ => AppScenes.CreateCatalog());
 		builder.Services.AddSingleton<MediaElementAudioOutput>();
 		builder.Services.AddSingleton<IAudioOutput>(sp => sp.GetRequiredService<MediaElementAudioOutput>());

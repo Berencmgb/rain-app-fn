@@ -40,14 +40,14 @@
                                TextColor="{StaticResource TextSecondary}" FontSize="14" />
                     </VerticalStackLayout>
 
-                    <!-- Nights badge (mockup). Counting Nights is ticket #6;
-                         this badge wires up then — the surface exists now. -->
+                    <!-- Nights badge (mockup): the lifetime total from Session
+                         (glossary: Night), persisted on-device only. -->
                     <Border Grid.Column="1" VerticalOptions="Start" Margin="0,6,0,0"
                             BackgroundColor="{StaticResource AccentSoft}"
                             StrokeThickness="0" StrokeShape="RoundRectangle 20"
                             Padding="13,6,12,6">
                         <VerticalStackLayout Spacing="0">
-                            <Label Text="0" TextColor="White" FontSize="14" FontAttributes="Bold"
+                            <Label Text="{Binding NightsText}" TextColor="White" FontSize="14" FontAttributes="Bold"
                                    HorizontalTextAlignment="Center" />
                             <Label Text="nights" TextColor="{StaticResource NightsLabel}" FontSize="10"
                                    HorizontalTextAlignment="Center" />
