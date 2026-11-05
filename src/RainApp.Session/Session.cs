@@ -8,6 +8,10 @@ namespace RainApp;
 /// </summary>
 public sealed class Session
 {
+    /// <summary>Fade curves owned by Session (spec: gentle 2s in, ~10s out).</summary>
+    private static readonly TimeSpan FadeIn = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan FadeOut = TimeSpan.FromSeconds(10);
+
     private readonly SceneCatalog _catalog;
     private readonly IClock _clock;
     private readonly IAudioOutput _audio;
@@ -20,6 +24,13 @@ public sealed class Session
     // while playing. Null remaining means Off — the state at every launch.
     private TimeSpan? _timerRemaining;
     private DateTimeOffset? _timerRunningSince;
+
+    // Output-level envelope: fades are ramped tick-by-tick through the clock.
+    private double _outputLevel = 1.0;
+    private double _fadeFrom;
+    private double _fadeTo;
+    private TimeSpan _fadeDuration;
+    private DateTimeOffset? _fadeStartedAt;
 
     public Session(SceneCatalog catalog, IClock clock, IAudioOutput audio)
     {
@@ -96,14 +107,29 @@ public sealed class Session
         Update(State with { SleepTimerRemaining = _timerRemaining });
     }
 
-    /// <summary>Intent: timer pulse from the UI. Publishes elapsed listening and the Sleep
-    /// Timer countdown while playing; a paused countdown simply waits.</summary>
+    /// <summary>Intent: timer pulse from the UI. Drives elapsed listening, the Sleep Timer
+    /// countdown and the fade envelope while playing; drives the fade-out through to a
+    /// stop. A paused countdown simply waits.</summary>
     public void Tick()
     {
-        if (State.Status != PlaybackStatus.Playing) return;
+        switch (State.Status)
+        {
+            case PlaybackStatus.Playing:
+                AdvanceFade();
+                AdvanceSleepTimerToNow();
+                if (_timerRemaining is { } remaining && remaining <= TimeSpan.Zero)
+                {
+                    BeginFadeOut();
+                    return;
+                }
+                Update(State with { ElapsedListening = ElapsedNow(), SleepTimerRemaining = _timerRemaining });
+                break;
 
-        AdvanceSleepTimerToNow();
-        Update(State with { ElapsedListening = ElapsedNow(), SleepTimerRemaining = _timerRemaining });
+            case PlaybackStatus.FadingOut:
+                AdvanceFade();
+                if (_fadeStartedAt is null) FinishFadeOut();
+                break;
+        }
     }
 
     private TimeSpan ElapsedNow() =>
@@ -117,6 +143,64 @@ public sealed class Session
         var remaining = _timerRemaining.Value - (_clock.UtcNow - _timerRunningSince.Value);
         _timerRemaining = remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
         _timerRunningSince = _clock.UtcNow;
+    }
+
+    /// <summary>Sleep Timer expired: the countdown goes away and the output starts its
+    /// gentle fade to silence; the elapsed clock stops here.</summary>
+    private void BeginFadeOut()
+    {
+        FreezeClock();
+        _timerRemaining = null;
+        _timerRunningSince = null;
+        StartFade(_outputLevel, 0, FadeOut);
+        Update(State with
+        {
+            Status = PlaybackStatus.FadingOut,
+            ElapsedListening = _elapsedAccrued,
+            SleepTimerRemaining = null,
+        });
+    }
+
+    /// <summary>Fade reached silence: stop the audio and return the UI to idle.</summary>
+    private void FinishFadeOut()
+    {
+        _outputLevel = 1.0; // the next start fades in from silence again
+        _audio.Stop();
+        Update(new SessionState());
+    }
+
+    /// <summary>Starts ramping the output level; the ramp advances with each tick.</summary>
+    private void StartFade(double from, double to, TimeSpan duration)
+    {
+        _fadeFrom = from;
+        _fadeTo = to;
+        _fadeDuration = duration;
+        _fadeStartedAt = _clock.UtcNow;
+        SetOutputLevel(from);
+    }
+
+    private void AdvanceFade()
+    {
+        if (_fadeStartedAt is null) return;
+
+        var progress = (_clock.UtcNow - _fadeStartedAt.Value) / _fadeDuration;
+        if (progress >= 1)
+        {
+            _fadeStartedAt = null;
+            SetOutputLevel(_fadeTo);
+        }
+        else if (progress > 0)
+        {
+            SetOutputLevel(_fadeFrom + (_fadeTo - _fadeFrom) * progress);
+        }
+    }
+
+    private void SetOutputLevel(double level)
+    {
+        if (level == _outputLevel) return;
+
+        _outputLevel = level;
+        _audio.SetOutputLevel(level);
     }
 
     private void FreezeClock()

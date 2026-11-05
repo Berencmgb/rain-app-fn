@@ -18,4 +18,7 @@ public enum PlaybackStatus
     Idle,
     Playing,
     Paused,
+
+    /// <summary>Sleep Timer expired: fading to silence, then the session stops.</summary>
+    FadingOut,
 }
