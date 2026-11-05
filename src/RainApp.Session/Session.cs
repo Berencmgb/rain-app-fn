@@ -21,6 +21,7 @@ public sealed class Session
     // Nights ledger (glossary: Night): playing time accrues to today through the
     // same clock the fades run on; the lifetime total and today's minutes persist.
     private int _nightsTotal;
+    private DateOnly _listeningDay;
     private TimeSpan _listeningToday = TimeSpan.Zero;
     private DateTimeOffset? _listeningSince;
 
@@ -50,6 +51,7 @@ public sealed class Session
         _clock = clock;
         _audio = audio;
         _persistence = persistence;
+        _listeningDay = Today;
     }
 
     public SessionState State { get; private set; } = new();
@@ -324,17 +326,31 @@ public sealed class Session
     /// (glossary: Night). The day's first crossing awards it — once.</summary>
     private static readonly TimeSpan NightThreshold = TimeSpan.FromMinutes(10);
 
+    /// <summary>The calendar day (UTC) the clock currently reads.</summary>
+    private DateOnly Today => DateOnly.FromDateTime(_clock.UtcNow.UtcDateTime);
+
     /// <summary>Counts elapsed playing time into today's ledger; only ever called while
     /// Playing. The watermark advances with each call so every second counts exactly once.
     /// Crossing the Night threshold awards exactly one Night — later minutes that day
-    /// only add to today's total, since a crossing needs a below-threshold before.</summary>
+    /// only add to today's total, since a crossing needs a below-threshold before.
+    /// A calendar-day crossing retires yesterday's minutes: only time after the day
+    /// boundary counts toward the new day's Night.</summary>
     private void AccumulateListeningToNow()
     {
         if (_listeningSince is null) return;
 
+        var now = _clock.UtcNow;
+        if (Today != _listeningDay)
+        {
+            _listeningDay = Today;
+            _listeningToday = TimeSpan.Zero;
+            var midnight = new DateTimeOffset(_listeningDay.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+            if (_listeningSince.Value < midnight) _listeningSince = midnight;
+        }
+
         var before = _listeningToday;
-        _listeningToday += _clock.UtcNow - _listeningSince.Value;
-        _listeningSince = _clock.UtcNow;
+        if (now > _listeningSince) _listeningToday += now - _listeningSince.Value;
+        _listeningSince = now;
 
         if (before < NightThreshold && _listeningToday >= NightThreshold) _nightsTotal++;
     }
