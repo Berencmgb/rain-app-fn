@@ -1,4 +1,4 @@
-namespace RainApp.Session;
+namespace RainApp;
 
 /// <summary>
 /// The single test seam (ADR-0003): plain C#, no MAUI types. Driven by intents,

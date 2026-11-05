@@ -1,6 +1,6 @@
-using RainApp.Session.Tests.Support;
+using RainApp.Tests.Support;
 
-namespace RainApp.Session.Tests;
+namespace RainApp.Tests;
 
 public class SessionPlaybackTests
 {

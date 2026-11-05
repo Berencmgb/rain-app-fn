@@ -1,4 +1,4 @@
-namespace RainApp.Session.Tests.Support;
+namespace RainApp.Tests.Support;
 
 /// <summary>Test fixture Scenes — enough of the catalog to exercise selection.</summary>
 public static class TestScenes

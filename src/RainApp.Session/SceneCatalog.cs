@@ -1,4 +1,4 @@
-namespace RainApp.Session;
+namespace RainApp;
 
 /// <summary>A Scene: a named, continuously looping ambient sound.</summary>
 public sealed record SceneDescriptor(

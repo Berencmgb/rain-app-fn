@@ -1,0 +1,44 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!-- Design tokens: colors from mockup.html (the design source of truth).
+     The app is dark-only (spec): no light-theme variants exist. -->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- Palette (mockup :root) -->
+    <Color x:Key="PageBackground">#0B0E1A</Color>
+    <Color x:Key="CardBackground">#1A2036</Color>
+    <Color x:Key="TextPrimary">#EEF1FB</Color>
+    <Color x:Key="TextSecondary">#8A93B5</Color>
+    <Color x:Key="Accent">#8B7CF6</Color>
+    <Color x:Key="AccentDeep">#6D5CE0</Color>
+    <Color x:Key="PlayerSurface">#161C30</Color>
+    <Color x:Key="LiveGreen">#6EE7A0</Color>
+
+    <!-- Derived (mockup rgba() values) -->
+    <Color x:Key="AccentSoft">#298B7CF6</Color>          <!-- rgba(139,124,246,0.16) -->
+    <Color x:Key="ActiveCardBorder">#738B7CF6</Color>    <!-- rgba(139,124,246,0.45) -->
+    <Color x:Key="CardBorder">#0BFFFFFF</Color>          <!-- rgba(255,255,255,0.045) -->
+    <Color x:Key="PlayDotBackground">#12FFFFFF</Color>   <!-- rgba(255,255,255,0.07) -->
+    <Color x:Key="TrackBackground">#1AFFFFFF</Color>     <!-- rgba(255,255,255,0.1) -->
+    <Color x:Key="PlayerBorder">#0FFFFFFF</Color>        <!-- rgba(255,255,255,0.06) -->
+    <Color x:Key="NightsLabel">#C9C0FF</Color>
+
+    <!-- Active card highlight: linear-gradient(135deg, rgba(139,124,246,0.22), rgba(139,124,246,0.08)) -->
+    <LinearGradientBrush x:Key="ActiveCardBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#388B7CF6" Offset="0" />
+        <GradientStop Color="#148B7CF6" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- Play button: linear-gradient(135deg, #8b7cf6, #6d5ce0) -->
+    <LinearGradientBrush x:Key="PlayButtonBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#8B7CF6" Offset="0" />
+        <GradientStop Color="#6D5CE0" Offset="1" />
+    </LinearGradientBrush>
+
+    <!-- Ambient glow behind the header (mockup .phone::before) -->
+    <RadialGradientBrush x:Key="AmbientGlowBrush">
+        <GradientStop Color="#478B7CF6" Offset="0" />
+        <GradientStop Color="#008B7CF6" Offset="0.65" />
+    </RadialGradientBrush>
+
+</ResourceDictionary>

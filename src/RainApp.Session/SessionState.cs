@@ -1,4 +1,4 @@
-namespace RainApp.Session;
+namespace RainApp;
 
 /// <summary>Observable state of a listening session. Immutable snapshot.</summary>
 public sealed record SessionState

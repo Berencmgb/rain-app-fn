@@ -1,6 +1,5 @@
-using RainApp.Session;
 
-namespace RainApp.Session.Tests.Support;
+namespace RainApp.Tests.Support;
 
 /// <summary>Hand-written fake clock: tests move time by setting <see cref="Now"/>.</summary>
 public sealed class FakeClock : IClock

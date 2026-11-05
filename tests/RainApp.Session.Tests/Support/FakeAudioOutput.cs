@@ -1,6 +1,5 @@
-using RainApp.Session;
 
-namespace RainApp.Session.Tests.Support;
+namespace RainApp.Tests.Support;
 
 /// <summary>
 /// Fake audio-output port. Tests assert on Session state, not on these calls

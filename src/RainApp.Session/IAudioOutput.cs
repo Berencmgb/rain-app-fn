@@ -1,4 +1,4 @@
-namespace RainApp.Session;
+namespace RainApp;
 
 /// <summary>
 /// Audio-output port (ADR-0003). Implemented by the thin MediaElement adapter;

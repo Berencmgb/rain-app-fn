@@ -1,4 +1,4 @@
-namespace RainApp.Session;
+namespace RainApp;
 
 /// <summary>Injected clock; all time in Session flows through here (ADR-0003).</summary>
 public interface IClock
