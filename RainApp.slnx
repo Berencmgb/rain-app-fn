@@ -1,9 +1,11 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/RainApp.Animation/RainApp.Animation.csproj" />
     <Project Path="src/RainApp.Session/RainApp.Session.csproj" />
     <Project Path="src/RainApp/RainApp.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/RainApp.Animation.Tests/RainApp.Animation.Tests.csproj" />
     <Project Path="tests/RainApp.Session.Tests/RainApp.Session.Tests.csproj" />
   </Folder>
 </Solution>
