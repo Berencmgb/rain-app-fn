@@ -51,7 +51,30 @@ public sealed class Session
         _clock = clock;
         _audio = audio;
         _persistence = persistence;
+
+        // Restore the Nights ledger (glossary: Night) from the device. Minutes only
+        // carry when they belong to the day the clock reads; a stale day is retired.
+        var stored = persistence.Load();
+        _nightsTotal = stored.NightsTotal;
         _listeningDay = Today;
+        _listeningToday = stored.ListeningDay == _listeningDay && stored.MinutesToday > TimeSpan.Zero
+            ? stored.MinutesToday
+            : TimeSpan.Zero;
+        _masterVolume = Math.Clamp(stored.Volume, 0.0, 1.0);
+
+        // Launch behaviour (spec): the last Scene comes back selected — using the
+        // paused-switch Load semantics of #4, never auto-playing — and the Sleep
+        // Timer is Off, which is every launch's state anyway.
+        var lastScene = stored.LastSceneId is { } id ? _catalog.Find(id) : null;
+        State = new SessionState
+        {
+            NightsTotal = _nightsTotal,
+            ListeningToday = _listeningToday,
+            Volume = _masterVolume,
+            CurrentSceneId = lastScene?.Id,
+            Status = lastScene is null ? PlaybackStatus.Idle : PlaybackStatus.Paused,
+        };
+        if (lastScene is not null) _audio.Load(lastScene.AudioAsset, lastScene.Title);
     }
 
     public SessionState State { get; private set; } = new();
@@ -69,6 +92,7 @@ public sealed class Session
         _masterVolume = level;
         Update(State with { Volume = level });
         ApplyOutputLevel();
+        Persist(); // the master volume is kept on-device like the Nights ledger
     }
 
     /// <summary>Intent: the user tapped a Scene — select it and start it playing.</summary>
@@ -89,6 +113,7 @@ public sealed class Session
         });
         StartFade(0, 1, FadeIn); // manual start never snaps on
         _audio.Play(scene.AudioAsset, scene.Title);
+        Persist(); // the last-used Scene is the one picked last
     }
 
     /// <summary>Intent: walk the Scene list as a ring — select the next Scene
@@ -126,6 +151,7 @@ public sealed class Session
                 ElapsedListening = TimeSpan.Zero,
             });
             _audio.Load(next.AudioAsset, next.Title);
+            Persist(); // walking the ring paused also moves the last-used Scene
             return;
         }
 
@@ -163,6 +189,7 @@ public sealed class Session
         AccumulateListeningToNow();
         _listeningSince = null; // paused time is not listening time
         _fadeStartedAt = null; // the level freezes with the paused audio
+        Persist(); // a quiet Scene's ledger is on the device
         Update(State with
         {
             Status = PlaybackStatus.Paused,
@@ -352,7 +379,25 @@ public sealed class Session
         if (now > _listeningSince) _listeningToday += now - _listeningSince.Value;
         _listeningSince = now;
 
-        if (before < NightThreshold && _listeningToday >= NightThreshold) _nightsTotal++;
+        if (before >= NightThreshold || _listeningToday < NightThreshold) return;
+
+        // The day's first crossing: one Night, and the ledger is on the device at once.
+        _nightsTotal++;
+        Persist();
+    }
+
+    /// <summary>Writes the current record through the persistence port — device-only
+    /// storage (spec: Nights never leave the device).</summary>
+    private void Persist()
+    {
+        _persistence.Save(new PersistedState
+        {
+            NightsTotal = _nightsTotal,
+            ListeningDay = _listeningDay,
+            MinutesToday = _listeningToday,
+            Volume = _masterVolume,
+            LastSceneId = State.CurrentSceneId,
+        });
     }
 
     private void Update(SessionState next)
