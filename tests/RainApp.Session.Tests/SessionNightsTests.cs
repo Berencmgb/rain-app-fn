@@ -93,4 +93,43 @@ public class SessionNightsTests
         Assert.Equal(1, _session.State.NightsTotal);
         Assert.Equal(TimeSpan.FromMinutes(35), _session.State.ListeningToday);
     }
+
+    [Fact]
+    public void TheNextCalendarDayEarlsANewNightFromItsOwnPlaying()
+    {
+        _session.Select(TestScenes.RainOnWindow);
+        _clock.Advance(TimeSpan.FromMinutes(10));
+        _session.Tick();
+        _session.Pause();
+        Assert.Equal(1, _session.State.NightsTotal);
+
+        // The next night: today's ledger starts empty whatever yesterday reached.
+        _clock.Now = new DateTimeOffset(2026, 11, 6, 22, 0, 0, TimeSpan.Zero);
+        _session.Play();
+        _clock.Advance(TimeSpan.FromMinutes(4));
+        _session.Tick();
+        Assert.Equal(TimeSpan.FromMinutes(4), _session.State.ListeningToday);
+        Assert.Equal(1, _session.State.NightsTotal);
+
+        _clock.Advance(TimeSpan.FromMinutes(6));
+        _session.Tick();
+        Assert.Equal(2, _session.State.NightsTotal);
+    }
+
+    [Fact]
+    public void PlayingAcrossMidnightCountsOnlyTimeAfterMidnight()
+    {
+        _clock.Now = new DateTimeOffset(2026, 11, 5, 23, 56, 0, TimeSpan.Zero);
+        _session.Select(TestScenes.RainOnWindow);
+        _clock.Advance(TimeSpan.FromMinutes(4)); // continuous playing crosses midnight
+        _session.Tick();
+
+        // Yesterday's minutes belong to yesterday; they never carry into a Night.
+        Assert.Equal(TimeSpan.Zero, _session.State.ListeningToday);
+        Assert.Equal(0, _session.State.NightsTotal);
+
+        _clock.Advance(TimeSpan.FromMinutes(10));
+        _session.Tick();
+        Assert.Equal(1, _session.State.NightsTotal);
+    }
 }
